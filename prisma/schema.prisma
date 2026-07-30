@@ -1,0 +1,171 @@
+// SwipePrep Prisma schema — see ARCHITECTURE.md §7
+// Better Auth Session/Account/Verification models included for the Prisma adapter.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ApplicationStatus {
+  SAVED
+  DISCARDED
+  APPLIED
+  INTERVIEWING
+  OFFER
+  REJECTED
+}
+
+enum RoadmapStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+enum WorkType {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  name          String?
+  image         String?
+  resumeUrl     String?
+  atsScore      Int?
+  skills        String[]      @default([])
+  targetRoles   String[]      @default([])
+  preferences   Json          @default("{}")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  applications Application[]
+  sessions     Session[]
+  accounts     Account[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model Job {
+  id           String        @id @default(cuid())
+  companyName  String
+  companyLogo  String?
+  role         String
+  description  String
+  requirements String[]      @default([])
+  salary       String?
+  location     String
+  workType     WorkType      @default(ONSITE)
+  companySize  String?
+  deadline     DateTime
+  applyUrl     String
+  tags         String[]      @default([])
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+
+  applications Application[]
+
+  @@index([isActive, deadline])
+  @@index([tags])
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  userId        String
+  jobId         String
+  status        ApplicationStatus @default(SAVED)
+  matchScore    Int?
+  whyYouFit     String?
+  roadmap       Json?
+  roadmapStatus RoadmapStatus     @default(PENDING)
+  notes         String?
+  appliedAt     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId, status])
+  @@index([userId, roadmapStatus])
+}
+
+model AiJob {
+  id          String   @id @default(cuid())
+  type        String
+  status      String   @default("PENDING")
+  payload     Json
+  result      Json?
+  error       String?
+  userId      String?
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@index([status, type])
+  @@index([userId])
+}
+
+model RateLimitCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  count     Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@unique([userId, action])
+  @@index([userId, action])
+}

@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+build/
+dist/
+coverage/
+
+# Env
+.env
+.env*.local
+!.env.example
+
+# Debug / OS
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+src/generated/prisma/
+
+# Typescript
+next-env.d.ts
+*.tsbuildinfo
