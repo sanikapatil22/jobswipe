@@ -18,6 +18,7 @@ export interface Job {
   companyLogo: string;
   role: string;
   description: string;
+  descriptionHTML?: string;
   requirements: string[];
   salary: string;
   location: string;
@@ -30,6 +31,10 @@ export interface Job {
   staticMatchScore: number;
   staticWhyYou: string;
   missingSkills?: string[];
+  postedDate?: string;
+  companySlug?: string;
+  ats?: 'greenhouse' | 'lever';
+  jobId?: string;
 }
 
 export interface UserExperience {

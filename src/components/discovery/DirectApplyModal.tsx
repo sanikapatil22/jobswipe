@@ -1,5 +1,6 @@
-'use client';
+ 'use client';
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { 
   Building2, Sparkles, User, Mail, GraduationCap, FileText, 
   CheckCircle2, X, Send, ShieldCheck
@@ -85,13 +86,13 @@ export const DirectApplyModal: React.FC<DirectApplyModalProps> = ({
           {/* Target Role Card Banner */}
           <div className="p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 flex items-start gap-3">
             <div className="w-12 h-12 rounded-xl bg-slate-900 border-2 border-slate-900 p-1 flex items-center justify-center flex-none overflow-hidden">
-              <img 
-                src={job.companyLogo} 
-                alt={job.companyName} 
+              <Image
+                src={job.companyLogo}
+                alt={job.companyName}
+                width={48}
+                height={48}
                 className="w-full h-full object-cover rounded-lg"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
+                unoptimized
               />
               <Building2 className="w-6 h-6 text-white absolute" />
             </div>

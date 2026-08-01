@@ -49,7 +49,7 @@ export function Navigation({ userProfile, appliedCount }: NavigationProps) {
 
             <Link href="/companies" className={`${tabClass('/companies')} relative`}>
               <Briefcase className="w-4 h-4" />
-              <span>My Companies</span>
+              <span>Interested</span>
               {appliedCount > 0 && (
                 <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-white text-indigo-700 rounded-full shadow-sm">
                   {appliedCount}
@@ -83,7 +83,7 @@ export function Navigation({ userProfile, appliedCount }: NavigationProps) {
               <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white">
                 {userProfile.name.charAt(0)}
               </div>
-              <span className="font-extrabold max-w-[100px] truncate">{userProfile.name}</span>
+              <span className="font-extrabold max-w-25 truncate">{userProfile.name}</span>
             </Link>
           </div>
         </div>

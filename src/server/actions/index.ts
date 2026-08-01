@@ -13,7 +13,7 @@ import type { ApplicationStatus, UserProfile } from '@/types';
 const swipeSchema = z.object({
   jobId: z.string().min(1),
   direction: z.enum(['left', 'right', 'save']),
-  generateRoadmap: z.boolean().optional().default(true),
+  generateRoadmap: z.boolean().optional().default(false),
 });
 
 // Input type before Zod defaults are applied
@@ -70,8 +70,7 @@ export async function handleSwipe(input: SwipeInput) {
   const job = await prisma.job.findFirst({ where: { id: data.jobId, isActive: true } });
   if (!job) throw new Error('Job not found');
 
-  const status: ApplicationStatus =
-    data.direction === 'right' ? 'APPLIED' : data.direction === 'save' ? 'SAVED' : 'DISCARDED';
+  const status: ApplicationStatus = data.direction === 'right' || data.direction === 'save' ? 'SAVED' : 'DISCARDED';
 
   const application = await prisma.application.upsert({
     where: { userId_jobId: { userId, jobId: data.jobId } },
@@ -79,32 +78,16 @@ export async function handleSwipe(input: SwipeInput) {
       userId,
       jobId: data.jobId,
       status,
-      appliedAt: status === 'APPLIED' ? new Date() : null,
-      roadmapStatus: status === 'APPLIED' && data.generateRoadmap ? 'GENERATING' : 'PENDING',
+      appliedAt: null,
+      roadmapStatus: 'PENDING',
     },
     update: {
       status,
-      appliedAt: status === 'APPLIED' ? new Date() : undefined,
-      roadmapStatus:
-        status === 'APPLIED' && data.generateRoadmap ? 'GENERATING' : undefined,
+      appliedAt: null,
+      roadmapStatus: 'PENDING',
     },
     include: { job: true },
   });
-
-  if (status === 'APPLIED' && data.generateRoadmap) {
-    const limit = await checkAndIncrementRateLimit(userId, 'generate-roadmap');
-    if (limit.allowed) {
-      await enqueue('generate-roadmap', {
-        applicationId: application.id,
-        userId,
-      });
-    } else {
-      await prisma.application.update({
-        where: { id: application.id },
-        data: { roadmapStatus: 'PENDING' },
-      });
-    }
-  }
 
   revalidatePath('/discover');
   revalidatePath('/companies');
@@ -112,7 +95,7 @@ export async function handleSwipe(input: SwipeInput) {
   return {
     success: true,
     application: mapApplicationToClient(application),
-    applyUrl: status === 'APPLIED' ? job.applyUrl : null,
+    applyUrl: null,
   };
 }
 

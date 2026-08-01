@@ -1,58 +1,28 @@
 import 'dotenv/config';
-import { PrismaClient, WorkType } from '../src/generated/prisma/client';
+import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { INITIAL_JOBS } from '../src/data/seedJobs';
+import { syncAllCompanies } from '../src/server/jobs/job-sync';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-function toWorkType(label: string): WorkType {
-  if (label === 'Remote' || label === 'REMOTE') return 'REMOTE';
-  if (label === 'Hybrid' || label === 'HYBRID') return 'HYBRID';
-  return 'ONSITE';
-}
-
 async function main() {
-  for (const job of INITIAL_JOBS) {
-    await prisma.job.upsert({
-      where: { id: job.id },
-      create: {
-        id: job.id,
-        companyName: job.companyName,
-        companyLogo: job.companyLogo,
-        role: job.role,
-        description: job.description,
-        requirements: job.requirements,
-        salary: job.salary,
-        location: job.location,
-        workType: toWorkType(job.workType),
-        companySize: job.companySize,
-        deadline: new Date(job.deadline),
-        applyUrl: job.applyUrl,
-        tags: job.tags,
-        isActive: true,
-      },
-      update: {
-        companyName: job.companyName,
-        companyLogo: job.companyLogo,
-        role: job.role,
-        description: job.description,
-        requirements: job.requirements,
-        salary: job.salary,
-        location: job.location,
-        workType: toWorkType(job.workType),
-        companySize: job.companySize,
-        deadline: new Date(job.deadline),
-        applyUrl: job.applyUrl,
-        tags: job.tags,
-        isActive: true,
-      },
-    });
-  }
+  const results = await syncAllCompanies();
+  const totals = results.reduce(
+    (accumulator, result) => {
+      accumulator.discovered += result.discovered;
+      accumulator.relevant += result.relevant;
+      accumulator.stored += result.stored;
+      return accumulator;
+    },
+    { discovered: 0, relevant: 0, stored: 0 }
+  );
 
-  console.log(`Seeded ${INITIAL_JOBS.length} jobs.`);
+  console.log(
+    `Synced ${totals.stored} live jobs from ${results.length} companies (${totals.relevant} relevant out of ${totals.discovered} discovered).`
+  );
 }
 
 main()

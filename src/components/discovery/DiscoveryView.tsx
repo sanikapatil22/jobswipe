@@ -1,171 +1,164 @@
 'use client';
-import React, { useState } from 'react';
+
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
-import { X, Heart, Bookmark, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Bookmark, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import type { PanInfo } from 'motion/react';
 import { Job, UserProfile } from '@/types';
 import { JobCard } from './JobCard';
-import { DirectApplyModal } from './DirectApplyModal';
 
 interface DiscoveryViewProps {
   jobs: Job[];
   userProfile: UserProfile;
-  onApplyJob: (job: Job) => void;
-  onSaveJob: (job: Job) => void;
-  onDiscardJob: (job: Job) => void;
+  onInterestedJob: (job: Job) => void;
+  onPassJob: (job: Job) => void;
 }
 
 export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   jobs,
   userProfile,
-  onApplyJob,
-  onSaveJob,
-  onDiscardJob,
+  onInterestedJob,
+  onPassJob,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [history, setHistory] = useState<{ job: Job; action: 'applied' | 'saved' | 'discarded' }[]>([]);
-  const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Direct Apply Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [targetJobForModal, setTargetJobForModal] = useState<Job | null>(null);
+  const [swipeFeedback, setSwipeFeedback] = useState<null | 'saved' | 'passed'>(null);
 
-  // Motion Value for Drag Swiping
   const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-18, 18]);
+  const rotate = useTransform(x, [-220, 220], [-18, 18]);
   const passOpacity = useTransform(x, [-120, -20], [1, 0]);
-  const applyOpacity = useTransform(x, [20, 120], [0, 1]);
+  const saveOpacity = useTransform(x, [20, 120], [0, 1]);
 
-  // Filter jobs based on controls
-  const filteredJobs = jobs.filter((j) => {
-    const matchesSearch =
-      j.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    if (!matchesSearch) return false;
-
-    if (filterType === 'remote') return j.workType === 'Remote';
-    if (filterType === 'hybrid') return j.workType === 'Hybrid';
-    if (filterType === 'top_match') return j.staticMatchScore >= 90;
-    return true;
-  });
+  const filteredJobs = useMemo(
+    () =>
+      jobs.filter((job) => {
+        const query = searchQuery.toLowerCase();
+        return (
+          job.companyName.toLowerCase().includes(query) ||
+          job.role.toLowerCase().includes(query) ||
+          job.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          job.description.toLowerCase().includes(query)
+        );
+      }),
+    [jobs, searchQuery]
+  );
 
   const activeStack = filteredJobs.slice(currentIndex);
   const currentJob = activeStack[0];
 
-  // Action handlers
-  const handleNext = (action: 'applied' | 'saved' | 'discarded') => {
+  useEffect(() => {
+    x.set(0);
+    setSwipeFeedback(null);
+  }, [currentJob?.id, x]);
+
+  useEffect(() => {
+    if (!swipeFeedback) return;
+    const timer = window.setTimeout(() => setSwipeFeedback(null), 700);
+    return () => window.clearTimeout(timer);
+  }, [swipeFeedback]);
+
+  const handleAdvance = async (action: 'interested' | 'pass') => {
     if (!currentJob) return;
 
-    if (action === 'applied') {
-      // Open modal to confirm 1-Click direct apply using profile & resume details
-      setTargetJobForModal(currentJob);
-      setIsModalOpen(true);
-      return;
-    } else if (action === 'saved') {
-      onSaveJob(currentJob);
+    if (action === 'interested') {
+      setSwipeFeedback('saved');
+      await onInterestedJob(currentJob);
     } else {
-      onDiscardJob(currentJob);
+      setSwipeFeedback('passed');
+      await onPassJob(currentJob);
     }
 
-    setHistory((prev) => [...prev, { job: currentJob, action }]);
     setCurrentIndex((prev) => prev + 1);
+    x.set(0);
   };
 
-  const handleConfirmDirectApply = (jobToApply: Job) => {
-    onApplyJob(jobToApply);
-    setHistory((prev) => [...prev, { job: jobToApply, action: 'applied' }]);
-    setCurrentIndex((prev) => prev + 1);
-    setIsModalOpen(false);
-    setTargetJobForModal(null);
-  };
-
-  const handleUndo = () => {
-    if (currentIndex <= 0 || history.length === 0) return;
-    setCurrentIndex((prev) => prev - 1);
-    setHistory((prev) => prev.slice(0, -1));
-  };
-
-  const handleReset = () => {
-    setCurrentIndex(0);
-    setHistory([]);
-  };
-
-  // Drag Gesture End Handler
   const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const offset = info.offset.x;
     const velocity = info.velocity.x;
 
     if (offset > 100 || velocity > 300) {
-      // Swiped Right -> Open 1-Click Direct Apply Modal
-      setTargetJobForModal(currentJob);
-      setIsModalOpen(true);
+      void handleAdvance('interested');
     } else if (offset < -100 || velocity < -300) {
-      // Swiped Left -> Pass / Discard
-      handleNext('discarded');
+      void handleAdvance('pass');
+    } else {
+      x.set(0);
     }
   };
 
+  const handleReset = () => {
+    setCurrentIndex(0);
+    setSearchQuery('');
+    x.set(0);
+  };
+
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-slate-50 py-8 px-4 flex flex-col items-center justify-between">
-      
-      {/* Search & Filter Header Bar */}
-      <div className="w-full max-w-xl mx-auto mb-6 flex flex-col sm:flex-row items-center gap-3">
-        <div className="relative flex-1 w-full">
-          <input
-            type="text"
-            placeholder="Search roles, companies, or stack (e.g. React, Stripe)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-10 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm transition-colors"
-          />
+    <div className="relative min-h-[calc(100vh-5rem)] overflow-hidden bg-slate-50 px-4 py-8 flex flex-col items-center gap-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-indigo-100/40 blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-24 h-64 w-64 rounded-full bg-cyan-100/40 blur-3xl" />
+      <div className="w-full max-w-5xl mx-auto mb-6 flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-600">Discover</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">Swipe through live jobs</h1>
+            <p className="text-sm text-slate-600 mt-2 max-w-2xl">
+              Real openings from Greenhouse and Lever only. Swipe right to save a role to Interested, then keep moving.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 shadow-sm text-xs font-bold text-slate-700">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>{filteredJobs.length} active roles</span>
+            </div>
+
+            <button
+              onClick={handleReset}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 shadow-sm text-xs font-black text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Reset cards</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border-2 border-slate-200 text-xs w-full sm:w-auto overflow-x-auto shadow-sm">
-          <button
-            onClick={() => setFilterType('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors ${
-              filterType === 'all'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-indigo-600'
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilterType('top_match')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors ${
-              filterType === 'top_match'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-emerald-700'
-            }`}
-          >
-            🔥 90%+ Match
-          </button>
-          <button
-            onClick={() => setFilterType('remote')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors ${
-              filterType === 'remote'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-indigo-600'
-            }`}
-          >
-            Remote
-          </button>
+        <div className="relative max-w-xl w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search companies, roles, or keywords..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border-2 border-slate-200 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm transition-colors"
+          />
         </div>
       </div>
 
-      {/* Main Interactive Card Stack Area */}
-      <div className="relative w-full max-w-md h-[580px] flex items-center justify-center">
-        {currentJob ? (
-          <div className="relative w-full h-full flex items-center justify-center">
-            
-            {/* Background Z-Index Cards preview */}
+      <div className="relative w-full max-w-4xl flex-1 min-h-0 flex items-center justify-center">
+        <AnimatePresence>
+          {swipeFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+              className={`absolute top-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black shadow-lg backdrop-blur-sm ${
+                swipeFeedback === 'saved'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100'
+                  : 'border-slate-200 bg-white text-slate-700 shadow-slate-200'
+              }`}
+            >
+              <Bookmark className={`w-4 h-4 ${swipeFeedback === 'saved' ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <span>{swipeFeedback === 'saved' ? 'Saved' : 'Passed'}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="relative w-full h-full flex items-center justify-center">
+          {currentJob ? (
+            <div className="relative w-full h-full flex items-center justify-center">
             {activeStack.slice(1, 3).map((bgJob, offsetIdx) => {
-              const scale = 1 - (offsetIdx + 1) * 0.04;
-              const translateY = (offsetIdx + 1) * 12;
+              const scale = 1 - (offsetIdx + 1) * 0.045;
+              const translateY = (offsetIdx + 1) * 14;
               return (
                 <div
                   key={bgJob.id}
@@ -173,21 +166,13 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                     transform: `translateY(${translateY}px) scale(${scale})`,
                     zIndex: 10 - offsetIdx - 1,
                   }}
-                  className="absolute inset-0 pointer-events-none opacity-60 filter blur-[0.5px] transition-all duration-300"
+                  className="absolute inset-0 pointer-events-none opacity-55 blur-[0.5px] transition-all duration-300"
                 >
-                  <JobCard
-                    job={bgJob}
-                    userProfile={userProfile}
-                    isFront={false}
-                    onApply={() => {}}
-                    onSave={() => {}}
-                    onDiscard={() => {}}
-                  />
+                  <JobCard job={bgJob} userProfile={userProfile} compact />
                 </div>
               );
             })}
 
-            {/* Top Interactive Front Card with Touch & Mouse Swipe Drag */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentJob.id}
@@ -197,47 +182,39 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 dragElastic={0.7}
                 onDragEnd={handleDragEnd}
                 className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing touch-none select-none"
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                initial={{ scale: 0.95, opacity: 0, y: 24 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.85, opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                exit={{ scale: 0.94, opacity: 0, y: -8 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 24, mass: 0.9 }}
               >
-                {/* Visual Stamp Overlay Indicators on Drag */}
                 <motion.div
-                  style={{ opacity: applyOpacity }}
-                  className="absolute top-8 left-8 z-30 pointer-events-none px-5 py-2.5 rounded-2xl border-4 border-emerald-500 bg-emerald-500/90 text-white font-black text-xl tracking-wider shadow-xl transform -rotate-12"
+                  style={{ opacity: saveOpacity }}
+                  className="absolute top-8 left-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800 shadow-[0_10px_30px_rgba(16,185,129,0.18)]"
                 >
-                  APPLY NOW 🚀
+                  <Bookmark className="w-4 h-4 text-emerald-600" />
+                  <span>Saved</span>
                 </motion.div>
 
                 <motion.div
                   style={{ opacity: passOpacity }}
-                  className="absolute top-8 right-8 z-30 pointer-events-none px-5 py-2.5 rounded-2xl border-4 border-rose-500 bg-rose-500/90 text-white font-black text-xl tracking-wider shadow-xl transform rotate-12"
+                  className="absolute top-8 right-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
                 >
-                  PASS ✕
+                  <X className="w-4 h-4 text-slate-500" />
+                  <span>Passed</span>
                 </motion.div>
 
-                <JobCard
-                  job={currentJob}
-                  userProfile={userProfile}
-                  isFront={true}
-                  onApply={() => handleNext('applied')}
-                  onSave={() => handleNext('saved')}
-                  onDiscard={() => handleNext('discarded')}
-                />
+                <JobCard job={currentJob} userProfile={userProfile} />
               </motion.div>
             </AnimatePresence>
-
           </div>
         ) : (
-          /* Empty Stack State */
-          <div className="w-full h-full rounded-[36px] bg-white border-4 border-slate-900 p-8 flex flex-col items-center justify-center text-center shadow-xl">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-indigo-600 mb-4">
+          <div className="w-full h-full rounded-4xl bg-white/95 backdrop-blur border border-slate-200 p-8 flex flex-col items-center justify-center text-center shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
               <Sparkles className="w-8 h-8 animate-pulse" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">Stack Completed!</h3>
-            <p className="text-xs text-slate-600 font-medium max-w-xs mb-6">
-              You&apos;ve reviewed all active tech roles matching your current filter criteria.
+            <h3 className="text-xl font-black text-slate-900 mb-2">No more cards</h3>
+            <p className="text-sm text-slate-600 font-medium max-w-md mb-6">
+              Everything currently in the database has been reviewed for this filter. Use Reset cards to start over, or sync new jobs for fresh openings.
             </p>
             <button
               onClick={handleReset}
@@ -248,73 +225,63 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
             </button>
           </div>
         )}
+        </div>
       </div>
 
-      {/* Swipe Controls Bar */}
       {currentJob && (
-        <div className="w-full max-w-md mx-auto mt-6 flex items-center justify-between gap-3 px-2">
-          
-          {/* Undo Button */}
-          <button
-            onClick={handleUndo}
-            disabled={currentIndex === 0}
-            title="Undo last swipe"
-            className="w-12 h-12 rounded-2xl bg-white border-2 border-slate-900 hover:bg-slate-100 text-slate-900 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
+        <div className="w-full max-w-3xl mx-auto mt-6 flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-1">
+            <span>Swipe right or tap Interested to save the role.</span>
+            <span>
+              {currentIndex + 1} / {filteredJobs.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => void handleAdvance('pass')}
+              title="Pass this role"
+              className="h-14 rounded-2xl bg-white border-2 border-slate-200 text-slate-900 flex items-center justify-center gap-2 font-black text-xs transition-all shadow-sm hover:border-rose-200 hover:text-rose-600"
+            >
+              <X className="w-5 h-5 text-rose-500" />
+              <span>Pass</span>
+            </button>
 
-          {/* Pass / Discard Button */}
-          <button
-            onClick={() => handleNext('discarded')}
-            title="Pass / Discard Role"
-            className="flex-1 py-3 px-4 rounded-2xl bg-white hover:bg-rose-50 border-2 border-slate-900 text-slate-900 hover:text-rose-600 flex items-center justify-center gap-2 font-black text-xs transition-all shadow-md"
-          >
-            <X className="w-5 h-5 text-rose-600" />
-            <span>Pass</span>
-          </button>
+            <button
+              onClick={() => void handleAdvance('interested')}
+              title="Save to Interested"
+              className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 font-black text-xs transition-all shadow-lg shadow-emerald-100"
+            >
+              <Bookmark className="w-5 h-5 fill-current" />
+              <span>Interested</span>
+            </button>
 
-          {/* Bookmark Button */}
-          <button
-            onClick={() => handleNext('saved')}
-            title="Save to My Companies"
-            className="w-12 h-12 rounded-2xl bg-white border-2 border-slate-900 hover:bg-amber-50 text-amber-600 flex items-center justify-center transition-all shadow-md"
-          >
-            <Bookmark className="w-5 h-5 text-amber-600" />
-          </button>
-
-          {/* Single Primary Apply Button */}
-          <button
-            onClick={() => handleNext('applied')}
-            title="Apply directly with Profile & Resume"
-            className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 transition-all shadow-xl shadow-indigo-200 active:scale-95"
-          >
-            <Heart className="w-5 h-5 fill-current text-white" />
-            <span>APPLY NOW</span>
-          </button>
-
+            <a
+              href={currentJob.applyUrl || undefined}
+              target="_blank"
+              rel="noreferrer"
+              title="Open official posting"
+              aria-disabled={!currentJob.applyUrl}
+              onClick={(event) => {
+                if (!currentJob.applyUrl) {
+                  event.preventDefault();
+                }
+              }}
+              className={`h-14 rounded-2xl border-2 flex items-center justify-center gap-2 font-black text-xs transition-all shadow-sm ${
+                currentJob.applyUrl
+                  ? 'bg-white border-slate-200 text-slate-900 hover:border-indigo-200 hover:text-indigo-700'
+                  : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <ArrowUpRight className="w-5 h-5 text-indigo-600" />
+              <span>{currentJob.applyUrl ? 'Apply' : 'Application unavailable'}</span>
+            </a>
+          </div>
         </div>
       )}
 
-      {/* Footer Instructions Hint */}
-      <div className="text-xs font-semibold text-slate-500 mt-4 text-center">
-        Swipe cards left/right or click <strong className="text-indigo-600 font-extrabold">APPLY NOW</strong> to send 1-Click applications with profile & resume details.
+      <div className="text-xs font-semibold text-slate-500 mt-4 text-center max-w-2xl leading-relaxed">
+        Right swipe saves the role to Interested and immediately advances to the next card. Apply only when you&apos;re ready from the Interested hub.
       </div>
-
-      {/* 1-Click AI Direct Apply Modal */}
-      {targetJobForModal && (
-        <DirectApplyModal
-          job={targetJobForModal}
-          userProfile={userProfile}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setTargetJobForModal(null);
-          }}
-          onConfirmApply={handleConfirmDirectApply}
-        />
-      )}
-
     </div>
   );
 };

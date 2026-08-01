@@ -75,6 +75,38 @@ export function computeHeuristicMatch(
   return { matchScore: score, whyYouFit, missingSkills };
 }
 
+function inferWorkType(location: string, rawResponse: unknown): WorkTypeLabel {
+  const text = `${location} ${JSON.stringify(rawResponse)}`.toLowerCase();
+  if (text.includes('remote')) return 'Remote';
+  if (text.includes('hybrid')) return 'Hybrid';
+  return 'Onsite';
+}
+
+function buildExcerpt(description: string): string {
+  const text = description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length <= 220) return text;
+  return `${text.slice(0, 219).trimEnd()}…`;
+}
+
+function extractKeywords(title: string, description: string): string[] {
+  const words = `${title} ${description}`
+    .toLowerCase()
+    .split(/[^a-z0-9+#.]+/g)
+    .filter((word) => word.length >= 3);
+  const stopWords = new Set(['and', 'the', 'for', 'with', 'you', 'will', 'our', 'role', 'team', 'company']);
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const word of words) {
+    if (stopWords.has(word) || seen.has(word)) continue;
+    seen.add(word);
+    tags.push(word);
+    if (tags.length >= 8) break;
+  }
+
+  return tags;
+}
+
 export function parsePreferences(raw: unknown): UserPreferences {
   if (!raw || typeof raw !== 'object') return {};
   return raw as UserPreferences;
@@ -105,25 +137,36 @@ export function mapJobToClient(
   job: DbJob,
   match?: { matchScore?: number | null; whyYouFit?: string | null; missingSkills?: string[] }
 ): Job {
-  const heuristic = computeHeuristicMatch([], job.tags, job.requirements);
+  const title = job.title || job.role;
+  const description = job.description || buildExcerpt(job.descriptionHTML || '');
+  const requirements = job.requirements?.length ? job.requirements : [];
+  const tags = job.tags?.length ? job.tags : extractKeywords(title, description);
+  const heuristic = computeHeuristicMatch([], tags, requirements);
+  const firstPublished = job.firstPublished || job.updatedAtSource || job.createdAt;
+  const deadline = job.deadline || new Date(firstPublished.getTime() + 1000 * 60 * 60 * 24 * 21);
   return {
     id: job.id,
     companyName: job.companyName,
     companyLogo: job.companyLogo || '',
-    role: job.role,
-    description: job.description,
-    requirements: job.requirements,
-    salary: job.salary || '',
+    role: title,
+    description,
+    descriptionHTML: job.descriptionHTML,
+    requirements,
+    salary: job.salary || 'Not disclosed',
     location: job.location,
-    workType: workTypeToLabel(job.workType),
-    deadline: job.deadline.toISOString().slice(0, 10),
+    workType: inferWorkType(job.location, job.rawResponse),
+    deadline: deadline.toISOString().slice(0, 10),
     applyUrl: job.applyUrl,
-    tags: job.tags,
-    companySize: job.companySize || '',
-    urgencyLevel: computeUrgency(job.deadline),
+    tags,
+    companySize: job.companySize || job.companyName,
+    urgencyLevel: computeUrgency(deadline),
     staticMatchScore: match?.matchScore ?? heuristic.matchScore,
     staticWhyYou: match?.whyYouFit ?? heuristic.whyYouFit,
     missingSkills: match?.missingSkills ?? heuristic.missingSkills,
+    postedDate: firstPublished.toISOString().slice(0, 10),
+    companySlug: job.companySlug,
+    ats: (job.ats || 'GREENHOUSE').toLowerCase() as 'greenhouse' | 'lever',
+    jobId: job.jobId,
   };
 }
 

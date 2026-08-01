@@ -32,6 +32,11 @@ enum WorkType {
   ONSITE
 }
 
+enum AtsType {
+  GREENHOUSE
+  LEVER
+}
+
 model User {
   id            String        @id @default(cuid())
   email         String        @unique
@@ -98,25 +103,36 @@ model Verification {
 }
 
 model Job {
-  id           String        @id @default(cuid())
-  companyName  String
-  companyLogo  String?
-  role         String
-  description  String
-  requirements String[]      @default([])
-  salary       String?
-  location     String
-  workType     WorkType      @default(ONSITE)
-  companySize  String?
-  deadline     DateTime
-  applyUrl     String
-  tags         String[]      @default([])
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
+  id             String    @id @default(cuid())
+  companyName    String
+  companySlug    String
+  ats            AtsType   @default(GREENHOUSE)
+  sourceKey      String    @unique
+  jobId          String
+  title          String
+  role           String
+  descriptionHTML String
+  description    String
+  requirements   String[]  @default([])
+  salary         String?
+  location       String
+  workType       WorkType  @default(ONSITE)
+  companySize    String?
+  firstPublished DateTime?
+  updatedAtSource DateTime?
+  rawResponse    Json
+  applyUrl       String
+  tags           String[]  @default([])
+  companyLogo    String?
+  deadline       DateTime  @default(now())
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   applications Application[]
 
-  @@index([isActive, deadline])
+  @@index([isActive, firstPublished])
+  @@index([companySlug, ats])
   @@index([tags])
 }
 
