@@ -26,6 +26,13 @@ enum RoadmapStatus {
   FAILED
 }
 
+enum InsightsStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
 enum WorkType {
   REMOTE
   HYBRID
@@ -137,18 +144,20 @@ model Job {
 }
 
 model Application {
-  id            String            @id @default(cuid())
-  userId        String
-  jobId         String
-  status        ApplicationStatus @default(SAVED)
-  matchScore    Int?
-  whyYouFit     String?
-  roadmap       Json?
-  roadmapStatus RoadmapStatus     @default(PENDING)
-  notes         String?
-  appliedAt     DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  userId         String
+  jobId          String
+  status         ApplicationStatus @default(SAVED)
+  matchScore     Int?
+  whyYouFit      String?
+  roadmap        Json?
+  roadmapStatus  RoadmapStatus     @default(PENDING)
+  insights       Json?
+  insightsStatus InsightsStatus    @default(PENDING)
+  notes          String?
+  appliedAt      DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -156,6 +165,7 @@ model Application {
   @@unique([userId, jobId])
   @@index([userId, status])
   @@index([userId, roadmapStatus])
+  @@index([userId, insightsStatus])
 }
 
 model AiJob {

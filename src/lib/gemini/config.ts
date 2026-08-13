@@ -3,8 +3,8 @@
  * Verify current IDs against Google's docs at deploy time.
  */
 export const geminiConfig = {
-  flashModel: process.env.GEMINI_FLASH_MODEL || 'gemini-2.5-flash',
-  proModel: process.env.GEMINI_PRO_MODEL || 'gemini-2.5-pro',
+  flashModel: process.env.GEMINI_FLASH_MODEL || 'gemini-3.5-flash',
+  proModel: process.env.GEMINI_PRO_MODEL || 'gemini-3.5-flash',
   apiKey: process.env.GEMINI_API_KEY || '',
 } as const;
 

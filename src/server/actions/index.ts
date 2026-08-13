@@ -219,6 +219,32 @@ export async function enqueueRoadmap(applicationId: string) {
   return { success: true, jobId: job.id };
 }
 
+export async function enqueueInsights(applicationId: string) {
+  const session = await requireSession();
+  const userId = session.user.id;
+
+  const application = await prisma.application.findFirst({
+    where: { id: applicationId, userId },
+  });
+  if (!application) throw new Error('Application not found');
+
+  const limit = await checkAndIncrementRateLimit(userId, 'generate-insights');
+  if (!limit.allowed) {
+    throw new Error('Daily insights generation limit reached. Try again tomorrow.');
+  }
+
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { insightsStatus: 'GENERATING' },
+  });
+
+  const job = await enqueue('generate-insights', { applicationId, userId });
+  revalidatePath('/companies');
+  revalidatePath(`/companies/${applicationId}`);
+
+  return { success: true, jobId: job.id };
+}
+
 export async function updateRoadmapTask(input: z.infer<typeof taskSchema>) {
   const session = await requireSession();
   const data = taskSchema.parse(input);

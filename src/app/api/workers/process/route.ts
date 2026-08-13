@@ -3,9 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { markJobCompleted, markJobFailed, markJobRunning } from '@/lib/queue';
 import { parseResumeJob } from '@/server/jobs/resume-parse';
 import { generateRoadmapJob } from '@/server/jobs/roadmap-gen';
+import { generateInsightsJob } from '@/server/jobs/insights-gen';
 import { computeMatchJob } from '@/server/jobs/match';
 import type {
   ComputeMatchPayload,
+  GenerateInsightsPayload,
   GenerateRoadmapPayload,
   JobType,
   ParseResumePayload,
@@ -40,6 +42,9 @@ export async function POST(req: NextRequest) {
         break;
       case 'generate-roadmap':
         result = await generateRoadmapJob(payload as GenerateRoadmapPayload);
+        break;
+      case 'generate-insights':
+        result = await generateInsightsJob(payload as GenerateInsightsPayload);
         break;
       case 'compute-match':
         result = await computeMatchJob(payload as ComputeMatchPayload);

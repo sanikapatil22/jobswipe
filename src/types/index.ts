@@ -8,6 +8,8 @@ export type ApplicationStatus =
 
 export type RoadmapStatus = 'PENDING' | 'GENERATING' | 'READY' | 'FAILED';
 
+export type InsightsStatus = 'PENDING' | 'GENERATING' | 'READY' | 'FAILED';
+
 export type UrgencyLevel = 'Tomorrow' | 'This Week' | 'Later';
 
 export type WorkTypeLabel = 'Remote' | 'Hybrid' | 'Onsite';
@@ -105,6 +107,17 @@ export interface AIRoadmap {
   keyProductInsights: string[];
 }
 
+export interface CompanyInsights {
+  companyName: string;
+  role: string;
+  overview: string;
+  interviewProcess: string[];
+  sampleQuestions: string[];
+  keyProductInsights: string[];
+  techStack: string[];
+  prepTips: string[];
+}
+
 export interface Application {
   id: string;
   userId: string;
@@ -118,6 +131,9 @@ export interface Application {
   roadmap?: AIRoadmap | null;
   roadmapStatus: RoadmapStatus;
   roadmapGenerating?: boolean;
+  insights?: CompanyInsights | null;
+  insightsStatus: InsightsStatus;
+  insightsGenerating?: boolean;
 }
 
 export interface MockInterviewMessage {
@@ -134,7 +150,7 @@ export interface MockInterviewMessage {
   timestamp: string;
 }
 
-export type JobType = 'parse-resume' | 'generate-roadmap' | 'compute-match';
+export type JobType = 'parse-resume' | 'generate-roadmap' | 'generate-insights' | 'compute-match';
 
 export interface ParseResumePayload {
   userId: string;
@@ -143,6 +159,11 @@ export interface ParseResumePayload {
 }
 
 export interface GenerateRoadmapPayload {
+  applicationId: string;
+  userId: string;
+}
+
+export interface GenerateInsightsPayload {
   applicationId: string;
   userId: string;
 }

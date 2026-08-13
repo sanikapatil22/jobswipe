@@ -3,6 +3,7 @@ import { twMerge } from 'tailwind-merge';
 import type {
   Application,
   AIRoadmap,
+  CompanyInsights,
   Job,
   UrgencyLevel,
   UserPreferences,
@@ -194,6 +195,9 @@ export function mapApplicationToClient(
     roadmap: (app.roadmap as AIRoadmap | null) || null,
     roadmapStatus: app.roadmapStatus as Application['roadmapStatus'],
     roadmapGenerating: app.roadmapStatus === 'GENERATING',
+    insights: (app.insights as CompanyInsights | null) || null,
+    insightsStatus: (app.insightsStatus || 'PENDING') as Application['insightsStatus'],
+    insightsGenerating: app.insightsStatus === 'GENERATING',
   };
 }
 

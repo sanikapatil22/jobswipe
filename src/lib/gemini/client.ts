@@ -14,6 +14,40 @@ export function getGeminiClient() {
   return client;
 }
 
+/**
+ * Tolerantly parse model JSON output: strips fences, recovers from trailing
+ * commas, and extracts the largest balanced JSON blob if the model added
+ * commentary around it.
+ */
+export function safeParseJson(text: string): unknown {
+  const cleaned = text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
+  const candidates: string[] = [];
+  candidates.push(cleaned);
+  candidates.push(cleaned.replace(/,\s*([}\]])/g, '$1'));
+
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const blob = cleaned.slice(firstBrace, lastBrace + 1);
+    candidates.push(blob);
+    candidates.push(blob.replace(/,\s*([}\]])/g, '$1'));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // try the next candidate
+    }
+  }
+  throw new Error(`Could not parse JSON from model output: ${cleaned.slice(0, 200)}`);
+}
+
 export async function generateJsonContent<T>(options: {
   prompt: string;
   schema: z.ZodType<T>;
@@ -35,8 +69,7 @@ export async function generateJsonContent<T>(options: {
     });
 
     const text = response.text || '{}';
-    const cleaned = text.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = safeParseJson(text);
     return options.schema.parse(parsed);
   };
 

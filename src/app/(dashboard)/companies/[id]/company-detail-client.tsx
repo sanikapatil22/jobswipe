@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyPrepDetail } from '@/components/prep/CompanyPrepDetail';
 import {
+  enqueueInsights,
   enqueueRoadmap,
   getApplicationStatus,
   updateRoadmapTask,
@@ -22,8 +23,15 @@ export function CompanyDetailClient({
   const [application, setApplication] = useState(initial);
 
   useQuery({
-    queryKey: ['application', application.id, application.roadmapStatus],
-    enabled: application.roadmapStatus === 'GENERATING',
+    queryKey: [
+      'application',
+      application.id,
+      application.roadmapStatus,
+      application.insightsStatus,
+    ],
+    enabled:
+      application.roadmapStatus === 'GENERATING' ||
+      application.insightsStatus === 'GENERATING',
     refetchInterval: 2500,
     queryFn: async () => {
       const updated = await getApplicationStatus(application.id);
@@ -44,6 +52,14 @@ export function CompanyDetailClient({
           roadmapGenerating: true,
         }));
         await enqueueRoadmap(appId);
+      }}
+      onGenerateInsights={async (appId) => {
+        setApplication((prev) => ({
+          ...prev,
+          insightsStatus: 'GENERATING',
+          insightsGenerating: true,
+        }));
+        await enqueueInsights(appId);
       }}
       onUpdateTaskCompletion={async (appId, stepId, taskId, completed) => {
         const res = await updateRoadmapTask({

@@ -23,10 +23,20 @@ export const JobCard: React.FC<JobCardProps> = ({
     day: 'numeric',
     year: 'numeric',
   });
-  const snippet = job.description.length > 190 ? `${job.description.slice(0, 190).trimEnd()}…` : job.description;
+  // Strip HTML tags + decode common entities (server-safe; no DOMParser for SSR).
+  const cleanDescription = job.description
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const snippet = cleanDescription.length > 190 ? `${cleanDescription.slice(0, 190).trimEnd()}…` : cleanDescription;
 
   return (
-    <div className={`w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
+    <div className={`w-full max-w-2xl mx-auto max-h-full bg-white border border-slate-200 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
       <div className="h-2.5 bg-indigo-600" />
 
       <div className={`${compact ? 'p-4' : 'p-5'} flex items-start justify-between gap-4 border-b border-slate-100`}>
@@ -66,7 +76,7 @@ export const JobCard: React.FC<JobCardProps> = ({
         </div>
       </div>
 
-      <div className={`${compact ? 'p-4' : 'p-5'} flex-1 space-y-4`}>
+      <div className={`${compact ? 'p-4' : 'p-5'} flex-1 min-h-0 overflow-y-auto space-y-4 [scrollbar-width:thin] [scrollbar-color:rgb(226_232_240)_transparent]`}>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-800">
             <MapPin className="w-4 h-4 text-sky-600 flex-none" />

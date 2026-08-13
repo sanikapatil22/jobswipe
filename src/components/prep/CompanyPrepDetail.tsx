@@ -1,39 +1,86 @@
 'use client';
-import React, { useState } from 'react';
-import { 
-  ArrowLeft, Sparkles, CheckCircle2, Circle, Send, MessageSquare, 
-  ExternalLink, BookOpen, Award, Lightbulb, RefreshCw
+import React, { useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  Sparkles,
+  CheckCircle2,
+  Circle,
+  Send,
+  MessageSquare,
+  ExternalLink,
+  BookOpen,
+  Award,
+  Lightbulb,
+  RefreshCw,
+  Volume2,
+  VolumeX,
+  Video,
+  Layers,
+  ListChecks,
+  Wrench,
 } from 'lucide-react';
 import { Application, MockInterviewMessage, UserProfile } from '@/types';
+import { useSpeechSynthesis } from '@/lib/use-speech-synthesis';
+import { LiveKitCall } from './LiveKitCall';
 
 interface CompanyPrepDetailProps {
   application: Application;
   userProfile: UserProfile;
   onClose: () => void;
   onGenerateRoadmap: (appId: string) => Promise<void>;
+  onGenerateInsights?: (appId: string) => Promise<void>;
   onUpdateTaskCompletion: (appId: string, stepId: string, taskId: string, completed: boolean) => void;
 }
+
+const FALLBACK_QUESTIONS = [
+  'Explain your technical approach to building scalable web APIs.',
+  'Describe a complex bug you debugged and how you resolved it.',
+  'Walk me through a project where you had to make a major technical trade-off.',
+];
+
+const FALLBACK_INSIGHTS = [
+  'This company values extreme velocity combined with API consistency.',
+  'High emphasis on automated CI/CD testing and developer ergonomics.',
+  'System design interviews test real production edge cases rather than theoretical trivia.',
+];
 
 export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
   application,
   userProfile,
   onClose,
   onGenerateRoadmap,
+  onGenerateInsights = async () => undefined,
   onUpdateTaskCompletion,
 }) => {
-  const { job, roadmap, roadmapStatus } = application;
+  const { job, roadmap, roadmapStatus, insights, insightsStatus } = application;
   const [activeTab, setActiveTab] = useState<'roadmap' | 'interview' | 'insights'>('roadmap');
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(
     roadmapStatus === 'GENERATING'
   );
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(
+    insightsStatus === 'GENERATING'
+  );
+
+  const { supported: speechSupported, enabled: speechEnabled, setEnabled: setSpeechEnabled, speak, stop, speaking } = useSpeechSynthesis();
+
+  // Pick a real, company-specific opening question (insights > roadmap > fallback).
+  const openingQuestion = useMemo(() => {
+    const fromInsights = insights?.sampleQuestions?.[0];
+    const fromRoadmap = roadmap?.sampleQuestions?.[0];
+    return (
+      fromInsights ||
+      fromRoadmap ||
+      `How would you design a rate limiter or handle idempotent API payment requests for ${job.companyName}? Walk me through your approach step-by-step.`
+    );
+  }, [insights, roadmap, job.companyName]);
 
   // AI Mock Interview Chat state
   const [chatMessages, setChatMessages] = useState<MockInterviewMessage[]>([
     {
       id: 'msg_init',
       sender: 'ai',
-      text: `Welcome to your mock interview for the ${job.role} position at ${job.companyName}! Let's start with a classic technical challenge: "How would you design a rate limiter or handle idempotent API payment requests?" Walk me through your approach step-by-step.`,
+      text: `Welcome to your mock interview for the ${job.role} position at ${job.companyName}! Let's start with a classic challenge: "${openingQuestion}" Take your time and walk me through your approach step-by-step.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -54,13 +101,28 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
   const progressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   // Trigger roadmap generation if not present
-  const handleGenerateClick = async () => {
+  const handleGenerateRoadmapClick = async () => {
     setIsGeneratingRoadmap(true);
     try {
       await onGenerateRoadmap(application.id);
     } finally {
       setIsGeneratingRoadmap(false);
     }
+  };
+
+  // Trigger company insights generation
+  const handleGenerateInsightsClick = async () => {
+    setIsGeneratingInsights(true);
+    try {
+      await onGenerateInsights(application.id);
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
+  const speakMessage = (text: string) => {
+    if (!speechSupported) return;
+    speak(text);
   };
 
   // Submit answer to AI Mock Interviewer (streaming)
@@ -100,9 +162,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
           companyName: job.companyName,
           role: job.role,
           userMessage: userMsgText,
-          targetQuestion:
-            roadmap?.sampleQuestions?.[0] ||
-            'Explain your technical approach to building scalable web APIs.',
+          targetQuestion: openingQuestion,
           history: chatMessages.map((m) => ({ sender: m.sender, text: m.text })),
         }),
       });
@@ -136,17 +196,24 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
           }
           if (payload.type === 'done') {
             feedback = payload.feedback || undefined;
+            const finalReply =
+              payload.reply ||
+              chatMessages.find((m) => m.id === aiMsgId)?.text.replace(/```json[\s\S]*?```/g, '').trim();
             setChatMessages((prev) =>
               prev.map((m) =>
                 m.id === aiMsgId
                   ? {
                       ...m,
-                      text: payload.reply || m.text.replace(/```json[\s\S]*?```/g, '').trim(),
+                      text: finalReply || m.text,
                       feedback,
                     }
                   : m
               )
             );
+            // Speak the interviewer's answer out loud when voice mode is on.
+            if (speechEnabled && finalReply) {
+              speakMessage(finalReply);
+            }
           }
           if (payload.type === 'error') {
             throw new Error(payload.error || 'Stream error');
@@ -174,7 +241,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto flex flex-col text-slate-900">
-      
+
       {/* Top Header Bar */}
       <div className="sticky top-0 z-10 bg-white border-b-2 border-slate-200 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
@@ -223,9 +290,9 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
 
       {/* Main Container */}
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col space-y-6">
-        
+
         {/* Navigation Tabs Bar */}
-        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 border-slate-200 w-fit shadow-sm">
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 border-slate-200 w-fit shadow-sm scroll-mt-36">
           <button
             onClick={() => setActiveTab('roadmap')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
@@ -266,7 +333,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
         {/* --- TAB 1: AI ROADMAP & BITE-SIZED TASKS --- */}
         {activeTab === 'roadmap' && (
           <div className="space-y-6">
-            
+
             {/* Generate or Regenerate Roadmap Banner */}
             {!roadmap && roadmapStatus !== 'GENERATING' ? (
               <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
@@ -283,7 +350,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
                   reports to generate a 4-phase prep plan.
                 </p>
                 <button
-                  onClick={handleGenerateClick}
+                  onClick={handleGenerateRoadmapClick}
                   disabled={isGeneratingRoadmap}
                   className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
                 >
@@ -307,7 +374,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
               </div>
             ) : roadmap ? (
               <div className="space-y-6">
-                
+
                 {/* Overall Strategic Focus Box */}
                 <div className="p-5 rounded-2xl bg-indigo-50 border-2 border-indigo-200 flex items-start gap-3">
                   <Lightbulb className="w-5 h-5 text-amber-500 flex-none mt-0.5" />
@@ -445,10 +512,52 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
 
         {/* --- TAB 2: AI MOCK INTERVIEW SIMULATOR --- */}
         {activeTab === 'interview' && (
-          <div className="flex-1 rounded-3xl bg-white border-2 border-slate-200 p-4 sm:p-6 flex flex-col h-[520px] shadow-sm">
-            
+          <div className="flex-1 rounded-3xl bg-white border-2 border-slate-200 p-4 sm:p-6 flex flex-col gap-4 shadow-sm">
+
+            {/* Simulator header: title + voice toggle */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Video className="w-4 h-4 text-indigo-600" />
+                  Mock Interview Simulator
+                </h3>
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                  Answer the {job.companyName} interviewer in text or out loud — enable voice to hear questions spoken back.
+                </p>
+              </div>
+
+              {speechSupported && (
+                <button
+                  onClick={() => {
+                    const next = !speechEnabled;
+                    setSpeechEnabled(next);
+                    if (next) {
+                      const lastAi = [...chatMessages].reverse().find((m) => m.sender === 'ai');
+                      if (lastAi?.text) speakMessage(lastAi.text);
+                    } else {
+                      stop();
+                    }
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all border-2 ${
+                    speechEnabled
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
+                  }`}
+                >
+                  {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  <span>{speechEnabled ? (speaking ? 'Speaking…' : 'Voice On') : 'Voice Off'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* LiveKit video conference room */}
+            <LiveKitCall
+              applicationId={application.id}
+              participantName={userProfile.name || 'Candidate'}
+            />
+
             {/* Chat Messages Log */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 h-[340px] scrollbar-thin scrollbar-thumb-slate-200">
               {chatMessages.map((msg) => (
                 <div
                   key={msg.id}
@@ -458,6 +567,15 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
                     <span>{msg.sender === 'user' ? userProfile.name : `${job.companyName} Lead Interviewer`}</span>
                     <span>•</span>
                     <span>{msg.timestamp}</span>
+                    {msg.sender === 'ai' && speechSupported && msg.text && (
+                      <button
+                        onClick={() => speakMessage(msg.text)}
+                        title="Hear this question read aloud"
+                        className="p-0.5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
 
                   <div
@@ -511,7 +629,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
             </div>
 
             {/* Message Input Box */}
-            <form onSubmit={handleSendInterviewMessage} className="mt-4 flex items-center gap-2 pt-3 border-t-2 border-slate-100">
+            <form onSubmit={handleSendInterviewMessage} className="flex items-center gap-2 pt-3 border-t-2 border-slate-100">
               <input
                 type="text"
                 placeholder="Type your technical answer or explanation here..."
@@ -533,52 +651,158 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
           </div>
         )}
 
-        {/* --- TAB 3: INSIGHTS & SAMPLE INTERVIEW QUESTIONS --- */}
+        {/* --- TAB 3: COMPANY INSIGHTS & QUESTIONS --- */}
         {activeTab === 'insights' && (
           <div className="space-y-6">
-            
-            {/* Real Interview Questions List */}
-            <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-              <h3 className="font-black text-xs text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-indigo-600" />
-                <span>Frequently Asked Interview Questions at {job.companyName}</span>
-              </h3>
 
-              <div className="space-y-3">
-                {(roadmap?.sampleQuestions || [
-                  `How do you handle race conditions or idempotency in ${job.companyName}'s API infrastructure?`,
-                  `Describe a complex React/TypeScript state bug you debugged recently.`,
-                  `Explain the internal trade-offs between SQL transactions and Redis caching.`,
-                  `Why ${job.companyName} over other tech companies in this sector?`,
-                ]).map((q, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-xs font-bold text-slate-800">
-                    <span className="font-black text-indigo-600 mr-2">Q{idx + 1}:</span>
-                    <span>{q}</span>
-                  </div>
-                ))}
+            {/* Generate CTA / Generating / Content */}
+            {!insights && insightsStatus !== 'GENERATING' ? (
+              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-sky-100 border-2 border-sky-200 flex items-center justify-center text-sky-600 mb-4">
+                  <BookOpen className="w-7 h-7 animate-pulse" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">
+                  {insightsStatus === 'FAILED'
+                    ? 'Insights Generation Failed'
+                    : 'Generate Company Insights & Questions'}
+                </h3>
+                <p className="text-xs font-semibold text-slate-600 max-w-md mb-6 leading-relaxed">
+                  Gemini will research {job.companyName}&apos;s products, engineering culture, interview process and
+                  this role&apos;s requirements to build a tailored question bank and prep brief.
+                </p>
+                <button
+                  onClick={handleGenerateInsightsClick}
+                  disabled={isGeneratingInsights}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs shadow-lg shadow-sky-200 transition-all disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>
+                    {isGeneratingInsights
+                      ? 'Researching Company...'
+                      : insightsStatus === 'FAILED'
+                        ? 'Retry Insights & Qs'
+                        : 'Generate Insights Now'}
+                  </span>
+                </button>
               </div>
-            </div>
-
-            {/* Product & Tech Stack Insights */}
-            <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-              <h3 className="font-black text-xs text-amber-700 uppercase tracking-wider flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-600" />
-                <span>Engineering Culture & Product Insights</span>
-              </h3>
-
-              <div className="space-y-3">
-                {(roadmap?.keyProductInsights || [
-                  `${job.companyName} values extreme velocity combined with API consistency.`,
-                  `High emphasis on automated CI/CD testing and developer ergonomics.`,
-                  `System design interviews test real production edge cases rather than theoretical trivia.`,
-                ]).map((insight, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-xs font-bold text-indigo-900">
-                    <Sparkles className="w-4 h-4 text-indigo-600 flex-none mt-0.5" />
-                    <span>{insight}</span>
-                  </div>
-                ))}
+            ) : !insights && (insightsStatus === 'GENERATING' || isGeneratingInsights) ? (
+              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                <RefreshCw className="w-8 h-8 text-sky-600 animate-spin mb-4" />
+                <h3 className="text-xl font-black text-slate-900 mb-2">Researching {job.companyName}…</h3>
+                <p className="text-xs font-semibold text-slate-600 max-w-md">
+                  Gemini is building your company briefing. This page will update automatically when it finishes.
+                </p>
               </div>
-            </div>
+            ) : insights ? (
+              <>
+                {/* Company Overview */}
+                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-sky-600" />
+                    <h3 className="font-black text-xs text-sky-700 uppercase tracking-wider">
+                      {insights.companyName} — {insights.role}
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed font-semibold">{insights.overview}</p>
+
+                  {insights.techStack.length > 0 && (
+                    <div className="pt-2">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Wrench className="w-3 h-3" /> Tech Stack
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {insights.techStack.map((tech) => (
+                          <span
+                            key={tech}
+                            className="px-2.5 py-1 text-[10px] font-black bg-sky-50 text-sky-800 rounded-full border border-sky-200"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Interview Process */}
+                {insights.interviewProcess.length > 0 && (
+                  <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
+                    <h3 className="font-black text-xs text-indigo-600 uppercase tracking-wider flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-indigo-600" />
+                      <span>Typical Interview Process</span>
+                    </h3>
+                    <div className="space-y-2.5">
+                      {insights.interviewProcess.map((stage, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <span className="flex-none w-7 h-7 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center text-[10px] font-black">
+                            {idx + 1}
+                          </span>
+                          <p className="text-xs font-bold text-slate-800 leading-relaxed pt-1">{stage}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Real Interview Questions */}
+                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
+                  <h3 className="font-black text-xs text-indigo-600 uppercase tracking-wider flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-indigo-600" />
+                    <span>Frequently Asked Interview Questions at {insights.companyName}</span>
+                  </h3>
+
+                  <div className="space-y-3">
+                    {(insights.sampleQuestions.length > 0
+                      ? insights.sampleQuestions
+                      : FALLBACK_QUESTIONS
+                    ).map((q, idx) => (
+                      <div key={idx} className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-xs font-bold text-slate-800">
+                        <span className="font-black text-indigo-600 mr-2">Q{idx + 1}:</span>
+                        <span>{q}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Product & Culture Insights */}
+                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
+                  <h3 className="font-black text-xs text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    <span>Engineering Culture & Product Insights</span>
+                  </h3>
+
+                  <div className="space-y-3">
+                    {(insights.keyProductInsights.length > 0
+                      ? insights.keyProductInsights
+                      : FALLBACK_INSIGHTS
+                    ).map((insight, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-xs font-bold text-indigo-900">
+                        <Sparkles className="w-4 h-4 text-indigo-600 flex-none mt-0.5" />
+                        <span>{insight}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prep Tips */}
+                {insights.prepTips.length > 0 && (
+                  <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
+                    <h3 className="font-black text-xs text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                      <ListChecks className="w-4 h-4 text-emerald-600" />
+                      <span>Actionable Prep Tips</span>
+                    </h3>
+                    <div className="space-y-3">
+                      {insights.prepTips.map((tip, idx) => (
+                        <div key={idx} className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-xs font-bold text-emerald-900">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-none mt-0.5" />
+                          <span>{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
 
           </div>
         )}
