@@ -10,6 +10,8 @@ import {
   ROLE_GROUPS,
   BASE_SKILLS,
   LOCATION_WORK_TYPES,
+  LOCATION_COUNTRIES,
+  LOCATION_REGIONS,
   type DiscoverFilters,
 } from '@/lib/jobs/filters';
 
@@ -23,8 +25,9 @@ const VALID_DEGREES = new Set(DEGREES);
 const VALID_BRANCHES = new Set(BRANCHES);
 const VALID_WORK_TYPES = new Set(LOCATION_WORK_TYPES);
 const VALID_MIN_MATCH = new Set([0, 50, 70, 80, 90]);
+const VALID_COUNTRIES = new Set(LOCATION_COUNTRIES.map((c) => c.id));
 
-/** GET /api/jobs?q=&location=&workTypes=&jobType=&role=&skills=&company=&gradYear=&degree=&branch=&minMatch=&cursor=&limit= */
+/** GET /api/jobs?q=&location=&workTypes=&jobType=&role=&skills=&company=&gradYear=&degree=&branch=&country=&region=&minMatch=&cursor=&limit= */
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) {
@@ -43,6 +46,10 @@ export async function GET(req: NextRequest) {
   const rawMinMatch = Number.parseInt(sp.get('minMatch') || '0', 10);
   const minMatch = VALID_MIN_MATCH.has(rawMinMatch) ? rawMinMatch : 0;
 
+  // Country is single-select; states only apply within the chosen country.
+  const country = sp.get('country') || '';
+  const validCountry = VALID_COUNTRIES.has(country) ? country : '';
+
   const filters: DiscoverFilters = {
     q: sp.get('q') || '',
     locations: filterValues('location'),
@@ -54,6 +61,11 @@ export async function GET(req: NextRequest) {
     gradYears: filterValues('gradYear', VALID_GRAD_YEARS),
     degrees: filterValues('degree', VALID_DEGREES),
     branches: filterValues('branch', VALID_BRANCHES),
+    country: validCountry,
+    regions: filterValues(
+      'region',
+      new Set((LOCATION_REGIONS[validCountry] || []).map((r) => r.id))
+    ),
     minMatch,
   };
 

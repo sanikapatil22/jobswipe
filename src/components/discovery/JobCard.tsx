@@ -9,12 +9,15 @@ interface JobCardProps {
   job: Job;
   userProfile: UserProfile;
   compact?: boolean;
+  /** Portrait variant for the swipe deck: larger hero, more generous padding. */
+  vertical?: boolean;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({
   job,
   userProfile,
   compact = false,
+  vertical = false,
 }) => {
   const hasApplyUrl = Boolean(job.applyUrl?.trim());
   const postedDate = job.postedDate || job.deadline;
@@ -36,33 +39,40 @@ export const JobCard: React.FC<JobCardProps> = ({
     .trim();
   const snippet = cleanDescription.length > 190 ? `${cleanDescription.slice(0, 190).trimEnd()}…` : cleanDescription;
 
-  return (
-    <div className={`w-full max-w-2xl mx-auto max-h-full bg-white border border-slate-200 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
-      <div className="h-2.5 bg-indigo-600" />
+  const pad = vertical ? 'p-5 sm:p-6' : compact ? 'p-4' : 'p-5';
+  const logoSize = vertical ? 'w-16 h-16 sm:w-20 sm:h-20' : 'w-12 h-12';
+  const logoRound = vertical ? 'rounded-3xl' : 'rounded-2xl';
+  const imgSize = vertical ? 80 : 48;
 
-      <div className={`${compact ? 'p-4' : 'p-5'} flex items-start justify-between gap-4 border-b border-slate-100`}>
+  return (
+    <div className={`w-full ${vertical ? 'max-w-none' : 'max-w-2xl'} mx-auto max-h-full bg-white border border-slate-200 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
+      <div className="h-2.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" />
+
+      <div className={`${pad} flex items-start justify-between gap-4 border-b border-slate-100`}>
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-slate-900 p-1 flex items-center justify-center flex-none overflow-hidden shadow-sm">
+          <div className={`${logoSize} rounded-2xl bg-slate-900 p-1 flex items-center justify-center flex-none overflow-hidden shadow-sm`}>
             <Image
               src={job.companyLogo}
               alt={job.companyName}
-              width={48}
-              height={48}
-              className="w-full h-full object-cover rounded-xl"
+              width={imgSize}
+              height={imgSize}
+              className={`w-full h-full object-cover ${logoRound}`}
               unoptimized
             />
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="font-black text-slate-900 text-base truncate">{job.companyName}</h3>
+              <h3 className={`font-black text-slate-900 truncate ${vertical ? 'text-lg' : 'text-base'}`}>
+                {job.companyName}
+              </h3>
               {job.companySize && (
                 <span className="hidden sm:inline-flex px-2.5 py-0.5 text-[10px] font-black bg-slate-100 text-slate-700 rounded-full border border-slate-200">
                   {job.companySize}
                 </span>
               )}
             </div>
-            <h2 className="font-black text-indigo-700 text-lg leading-snug mt-0.5 line-clamp-2">
+            <h2 className={`font-black text-indigo-700 leading-snug mt-0.5 line-clamp-2 ${vertical ? 'text-xl sm:text-2xl lg:text-[26px]' : 'text-lg'}`}>
               {job.role}
             </h2>
           </div>
@@ -77,7 +87,7 @@ export const JobCard: React.FC<JobCardProps> = ({
         </div>
       </div>
 
-      <div className={`${compact ? 'p-4' : 'p-5'} flex-1 min-h-0 overflow-y-auto space-y-4 [scrollbar-width:thin] [scrollbar-color:rgb(226_232_240)_transparent]`}>
+      <div className={`${pad} flex-1 min-h-0 overflow-y-auto space-y-4 [scrollbar-width:thin] [scrollbar-color:rgb(226_232_240)_transparent]`}>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-800">
             <MapPin className="w-4 h-4 text-sky-600 flex-none" />
@@ -96,7 +106,7 @@ export const JobCard: React.FC<JobCardProps> = ({
           </div>
         </div>
 
-        <p className="text-sm text-slate-700 leading-relaxed font-medium line-clamp-4">
+        <p className={`text-sm text-slate-700 leading-relaxed font-medium ${vertical ? 'line-clamp-5' : 'line-clamp-4'}`}>
           {snippet}
         </p>
 

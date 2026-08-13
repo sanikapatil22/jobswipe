@@ -6,6 +6,136 @@ import type { Job } from '@/types';
 
 export const LOCATION_WORK_TYPES = ['Remote', 'Hybrid', 'On-site'] as const;
 
+/**
+ * Countries offered in the Location filter (India + the main international
+ * hubs). Each entry lists aliases used to match against each job's real
+ * location string — nothing is fabricated.
+ */
+export const LOCATION_COUNTRIES: { id: string; name: string; aliases: string[] }[] = [
+  {
+    id: 'IN',
+    name: 'India',
+    aliases: [
+      'india',
+      'bengaluru',
+      'bangalore',
+      'hyderabad',
+      'pune',
+      'mumbai',
+      'delhi',
+      'noida',
+      'gurgaon',
+      'gurugram',
+      'chennai',
+      'kolkata',
+      'remote - india',
+    ],
+  },
+  {
+    id: 'US',
+    name: 'United States',
+    aliases: [
+      'united states',
+      'usa',
+      'san francisco',
+      'new york',
+      'seattle',
+      'chicago',
+      'boston',
+      'austin',
+      'denver',
+      'california',
+      'texas',
+      'remote - us',
+      'us - remote',
+      'us remote',
+    ],
+  },
+  {
+    id: 'GB',
+    name: 'United Kingdom',
+    aliases: ['united kingdom', 'london', 'remote - united kingdom'],
+  },
+  {
+    id: 'DE',
+    name: 'Germany',
+    aliases: ['germany', 'berlin', 'munich'],
+  },
+  {
+    id: 'CA',
+    name: 'Canada',
+    aliases: ['canada', 'toronto', 'vancouver', 'montreal', 'remote - canada'],
+  },
+  {
+    id: 'AU',
+    name: 'Australia',
+    aliases: ['australia', 'sydney', 'melbourne'],
+  },
+  {
+    id: 'SG',
+    name: 'Singapore',
+    aliases: ['singapore'],
+  },
+  {
+    id: 'AE',
+    name: 'UAE',
+    aliases: ['uae', 'dubai', 'abu dhabi'],
+  },
+];
+
+/** States / cities offered within each country, matched against real job locations. */
+export const LOCATION_REGIONS: Record<string, { id: string; name: string; aliases: string[] }[]> = {
+  IN: [
+    { id: 'Bengaluru', name: 'Bengaluru', aliases: ['bengaluru', 'bangalore'] },
+    { id: 'Hyderabad', name: 'Hyderabad', aliases: ['hyderabad'] },
+    { id: 'Pune', name: 'Pune', aliases: ['pune'] },
+    { id: 'Mumbai', name: 'Mumbai', aliases: ['mumbai', 'bombay'] },
+    { id: 'Delhi NCR', name: 'Delhi NCR', aliases: ['delhi', 'ncr'] },
+    { id: 'Gurgaon', name: 'Gurgaon', aliases: ['gurgaon', 'gurugram'] },
+    { id: 'Noida', name: 'Noida', aliases: ['noida'] },
+    { id: 'Chennai', name: 'Chennai', aliases: ['chennai'] },
+    { id: 'Kolkata', name: 'Kolkata', aliases: ['kolkata', 'calcutta'] },
+    { id: 'Remote India', name: 'Remote India', aliases: ['remote - india'] },
+    { id: 'Other India', name: 'Other India', aliases: ['india'] },
+  ],
+  US: [
+    { id: 'California', name: 'California', aliases: ['california', 'san francisco', 'mountain view', 'san diego', 'los angeles'] },
+    { id: 'New York', name: 'New York', aliases: ['new york'] },
+    { id: 'Washington', name: 'Washington', aliases: ['washington', 'seattle', 'bellevue'] },
+    { id: 'Texas', name: 'Texas', aliases: ['texas', 'austin', 'dallas', 'houston'] },
+    { id: 'Massachusetts', name: 'Massachusetts', aliases: ['massachusetts', 'boston'] },
+    { id: 'Illinois', name: 'Illinois', aliases: ['illinois', 'chicago'] },
+    { id: 'Remote US', name: 'Remote US', aliases: ['remote - us', 'us - remote', 'us remote', 'usa'] },
+    { id: 'Other US', name: 'Other US', aliases: ['united states', 'us'] },
+  ],
+  GB: [
+    { id: 'London', name: 'London', aliases: ['london'] },
+    { id: 'Remote UK', name: 'Remote UK', aliases: ['remote - united kingdom'] },
+    { id: 'Other UK', name: 'Other UK', aliases: ['united kingdom', 'uk'] },
+  ],
+  DE: [
+    { id: 'Berlin', name: 'Berlin', aliases: ['berlin'] },
+    { id: 'Munich', name: 'Munich', aliases: ['munich'] },
+    { id: 'Other Germany', name: 'Other Germany', aliases: ['germany'] },
+  ],
+  CA: [
+    { id: 'Toronto', name: 'Toronto', aliases: ['toronto'] },
+    { id: 'Vancouver', name: 'Vancouver', aliases: ['vancouver'] },
+    { id: 'Remote Canada', name: 'Remote Canada', aliases: ['remote - canada'] },
+    { id: 'Other Canada', name: 'Other Canada', aliases: ['canada'] },
+  ],
+  AU: [
+    { id: 'Sydney', name: 'Sydney', aliases: ['sydney'] },
+    { id: 'Melbourne', name: 'Melbourne', aliases: ['melbourne'] },
+    { id: 'Other Australia', name: 'Other Australia', aliases: ['australia'] },
+  ],
+  SG: [{ id: 'Singapore', name: 'Singapore', aliases: ['singapore'] }],
+  AE: [
+    { id: 'Dubai', name: 'Dubai', aliases: ['dubai'] },
+    { id: 'Other UAE', name: 'Other UAE', aliases: ['uae', 'abu dhabi'] },
+  ],
+};
+
 export const JOB_TYPES = ['Internship', 'Full-time', 'New Grad', 'Graduate', 'Co-op'] as const;
 
 export const EXPERIENCE_LEVELS = ['0-1', '1-2', '2-3'] as const;
@@ -92,6 +222,10 @@ export interface DiscoverFilters {
   gradYears: string[];
   degrees: string[];
   branches: string[];
+  /** Selected country id (single-select; states are shown within it). */
+  country: string;
+  /** Selected states/cities within the chosen country. */
+  regions: string[];
   minMatch: number;
 }
 
@@ -112,11 +246,13 @@ export const EMPTY_FILTERS: DiscoverFilters = {
   gradYears: [],
   degrees: [],
   branches: [],
+  country: '',
+  regions: [],
   minMatch: 0,
 };
 
 // Canonical URL param names (see GET /api/jobs):
-//   location, workTypes, jobType, role, skills, company, gradYear, degree, branch
+//   location, workTypes, jobType, role, skills, company, gradYear, degree, branch, country, region
 const PARAM_KEYS: { key: keyof DiscoverFilters; param: string }[] = [
   { key: 'locations', param: 'location' },
   { key: 'workTypes', param: 'workTypes' },
@@ -127,6 +263,7 @@ const PARAM_KEYS: { key: keyof DiscoverFilters; param: string }[] = [
   { key: 'gradYears', param: 'gradYear' },
   { key: 'degrees', param: 'degree' },
   { key: 'branches', param: 'branch' },
+  { key: 'regions', param: 'region' },
 ];
 
 export function filtersToParams(f: DiscoverFilters): URLSearchParams {
@@ -136,6 +273,7 @@ export function filtersToParams(f: DiscoverFilters): URLSearchParams {
     const values = f[key] as string[];
     if (values.length > 0) params.set(param, values.join(','));
   }
+  if (f.country) params.set('country', f.country);
   if (f.minMatch > 0) params.set('minMatch', String(f.minMatch));
   return params;
 }
@@ -144,6 +282,7 @@ export function filtersFromParams(searchParams: URLSearchParams): DiscoverFilter
   const list = (param: string) =>
     (searchParams.get(param) || '').split(',').map((s) => s.trim()).filter(Boolean);
   const minMatch = Number.parseInt(searchParams.get('minMatch') || '0', 10);
+  const country = searchParams.get('country') || '';
   return {
     q: searchParams.get('q') || '',
     locations: list('location'),
@@ -155,6 +294,11 @@ export function filtersFromParams(searchParams: URLSearchParams): DiscoverFilter
     gradYears: list('gradYear'),
     degrees: list('degree'),
     branches: list('branch'),
+    country,
+    // Only keep regions that belong to the selected country.
+    regions: LOCATION_REGIONS[country]
+      ? list('region').filter((r) => LOCATION_REGIONS[country].some((x) => x.id === r))
+      : [],
     minMatch: Number.isFinite(minMatch) && minMatch > 0 ? minMatch : 0,
   };
 }
@@ -162,6 +306,7 @@ export function filtersFromParams(searchParams: URLSearchParams): DiscoverFilter
 export function countActiveFilters(f: DiscoverFilters): number {
   return (
     PARAM_KEYS.reduce((sum, { key }) => sum + (f[key] as string[]).length, 0) +
+    (f.country ? 1 : 0) +
     (f.minMatch > 0 ? 1 : 0) +
     (f.q.trim() ? 1 : 0)
   );
@@ -241,6 +386,12 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Word-boundary-aware containment test against a location string. */
+function locationContains(loc: string, alias: string): boolean {
+  const escaped = escapeRegex(alias).toLowerCase();
+  return new RegExp(`\\b${escaped}\\b`).test(loc);
+}
+
 /** Word-boundary-aware containment test for a skill token. */
 export function hasSkill(job: Job, skill: string): boolean {
   const text = `${job.description} ${job.requirements.join(' ')} ${job.tags.join(' ')}`.toLowerCase();
@@ -271,6 +422,22 @@ export function jobMatchesFilters(job: Job, f: DiscoverFilters): boolean {
   if (f.workTypes.length > 0) {
     const wt = job.workType.toLowerCase();
     if (!f.workTypes.some((t) => wt.includes(t.toLowerCase().replace('-', '')))) return false;
+  }
+
+  // Country + state/city filters — matched against the job's real location.
+  if (f.country) {
+    const loc = job.location.toLowerCase();
+    const country = LOCATION_COUNTRIES.find((c) => c.id === f.country);
+    if (!country || !country.aliases.some((a) => locationContains(loc, a))) return false;
+  }
+  if (f.regions.length > 0 && f.country) {
+    const loc = job.location.toLowerCase();
+    const regions = LOCATION_REGIONS[f.country] || [];
+    const ok = f.regions.some((r) => {
+      const region = regions.find((x) => x.id === r);
+      return region ? region.aliases.some((a) => locationContains(loc, a)) : false;
+    });
+    if (!ok) return false;
   }
 
   if (f.jobTypes.length > 0) {

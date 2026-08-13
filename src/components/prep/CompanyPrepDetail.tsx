@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Sparkles,
   CheckCircle2,
   Circle,
@@ -22,6 +23,10 @@ import {
   MicOff,
   Loader2,
   Square,
+  MapPin,
+  Target,
+  Clock,
+  Building2,
 } from 'lucide-react';
 import { Application, MockInterviewMessage, UserProfile } from '@/types';
 import { useSpeechSynthesis } from '@/lib/use-speech-synthesis';
@@ -48,6 +53,20 @@ const FALLBACK_INSIGHTS = [
   'This company values extreme velocity combined with API consistency.',
   'High emphasis on automated CI/CD testing and developer ergonomics.',
   'System design interviews test real production edge cases rather than theoretical trivia.',
+];
+
+const ROADMAP_CHECKLIST = [
+  'Analyzing role requirements',
+  'Extracting required skills',
+  'Mapping interview topics',
+  'Building personalized roadmap',
+];
+
+const INSIGHTS_CHECKLIST = [
+  'Scanning the job description',
+  'Researching products & engineering culture',
+  'Mapping the interview process',
+  'Building the question bank',
 ];
 
 export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
@@ -104,7 +123,7 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isAiResponding, setIsAiResponding] = useState(false);
 
-  // Compute total task progress
+  // --- Preparation summary metrics (all derived from real data) ---
   let totalTasksCount = 0;
   let completedTasksCount = 0;
   if (roadmap) {
@@ -115,9 +134,28 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
       });
     });
   }
-  const progressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const prepPercent =
+    totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  // Trigger roadmap generation if not present
+  const topicsTotal = roadmap?.steps.length ?? 0;
+  const topicsDone = roadmap
+    ? roadmap.steps.filter(
+        (s) => s.completed || (s.tasks.length > 0 && s.tasks.every((t) => t.completed))
+      ).length
+    : 0;
+
+  const nextRecommended = useMemo(() => {
+    if (!roadmap) return null;
+    const next = roadmap.steps.find(
+      (s) => !s.completed && !(s.tasks.length > 0 && s.tasks.every((t) => t.completed))
+    );
+    return next?.title ?? null;
+  }, [roadmap]);
+
+  const matchScore = application.matchScore ?? job.staticMatchScore;
+  const currentQuestionNumber = chatMessages.filter((m) => m.sender === 'ai').length;
+
+  // --- Generation triggers (identical behavior, new UI) ---
   const handleGenerateRoadmapClick = async () => {
     setIsGeneratingRoadmap(true);
     try {
@@ -127,7 +165,6 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
     }
   };
 
-  // Trigger company insights generation
   const handleGenerateInsightsClick = async () => {
     setIsGeneratingInsights(true);
     try {
@@ -163,6 +200,11 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
     } else if (audioTx.state === 'idle' || audioTx.state === 'error') {
       void audioTx.start();
     }
+  };
+
+  const goToRoadmap = () => {
+    setActiveTab('roadmap');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Submit answer to AI Mock Interviewer (streaming)
@@ -279,293 +321,495 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto flex flex-col text-slate-900">
+  // --- Shared UI primitives (compact) ---
+  const eyebrow = (text: string, accent = 'text-indigo-400') => (
+    <p className={`text-[10px] uppercase tracking-[0.22em] font-bold ${accent}`}>{text}</p>
+  );
 
-      {/* Top Header Bar */}
-      <div className="sticky top-0 z-10 bg-white border-b-2 border-slate-200 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onClose}
-            className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold transition-colors"
+  const chip = (label: string, active = false) => (
+    <span
+      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${
+        active
+          ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
+          : 'bg-white/[0.04] border-white/10 text-slate-400'
+      }`}
+    >
+      {label}
+    </span>
+  );
+
+  const generationChecklist = (items: string[], label: string, companyName: string) => (
+    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-6 flex flex-col items-center text-center">
+      <div className="w-9 h-9 rounded-lg border border-indigo-500/30 bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-3">
+        <RefreshCw className="w-4 h-4 animate-spin" />
+      </div>
+      {eyebrow(label)}
+      <h3 className="text-base font-bold text-white mt-1 mb-1">
+        Analyzing the {companyName} role…
+      </h3>
+      <p className="text-xs text-slate-400 mb-4">Runs as a background job — the page updates when it finishes.</p>
+      <div className="w-full max-w-xs mx-auto space-y-1.5 text-left">
+        {items.map((item, i) => (
+          <div
+            key={item}
+            className="flex items-center gap-2.5 text-xs animate-[prepFadeUp_0.4s_ease_both]"
+            style={{ animationDelay: `${0.3 + i * 0.5}s` }}
           >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-slate-900">{job.companyName}</h2>
-              <span className="px-2.5 py-0.5 text-[10px] font-black bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
-                {application.status}
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-slate-500">{job.role} • AI Prep Hub</p>
-          </div>
-        </div>
-
-        {/* Global Progress Gauge */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-slate-700">
-              Prep Readiness: <strong className="text-emerald-700 font-black">{progressPercent}%</strong>
+            {i < 2 ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-none" />
+            ) : (
+              <Circle className="w-3.5 h-3.5 text-slate-600 flex-none animate-pulse" />
+            )}
+            <span className={i < 2 ? 'text-slate-300 font-medium' : 'text-slate-500 font-medium'}>
+              {item}
             </span>
-            <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden mt-1">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
+  const emptyState = ({
+    label,
+    title,
+    description,
+    actionLabel,
+    onAction,
+    busy,
+    accent,
+  }: {
+    label: string;
+    title: string;
+    description: string;
+    actionLabel: string;
+    onAction: () => void;
+    busy?: boolean;
+    accent?: 'indigo' | 'sky';
+  }) => (
+    <section className="rounded-xl border border-white/10 bg-white/[0.02] px-5 py-6 flex flex-col items-center text-center">
+      <div
+        className={`w-9 h-9 rounded-lg border flex items-center justify-center mb-3 ${
+          accent === 'sky'
+            ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+            : 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400'
+        }`}
+      >
+        <Sparkles className="w-4 h-4" />
+      </div>
+      {eyebrow(label)}
+      <h3 className="text-base font-bold text-white mt-1 mb-1">{title}</h3>
+      <p className="text-xs text-slate-400 max-w-md mb-4 leading-relaxed">{description}</p>
+      <button
+        onClick={onAction}
+        disabled={busy}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs transition-all disabled:opacity-50 ${
+          accent === 'sky'
+            ? 'bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20'
+            : 'bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/20'
+        }`}
+      >
+        {busy ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Sparkles className="w-3.5 h-3.5" />
+        )}
+        {actionLabel}
+      </button>
+    </section>
+  );
+
+  const monogram =
+    job.companyLogo ||
+    job.companyName
+      .split(' ')
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0A0C12] text-slate-200">
+      <style>{`
+        @keyframes prepFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes prepDot { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+        .prep-no-scrollbar { scrollbar-width: none; }
+        .prep-no-scrollbar::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      {/* Ambient top glow */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_55%_100%_at_50%_-30%,rgba(99,102,241,0.14),transparent)]" />
+
+      {/* ===== Sticky header (compact) ===== */}
+      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0A0C12]/85 backdrop-blur-md">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={onClose}
+              className="flex-none p-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white transition-colors"
+              title="Back to companies"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-indigo-400 font-bold truncate">
+                {job.companyName}
+              </p>
+              <p className="text-xs font-semibold text-slate-300 truncate">{job.role}</p>
             </div>
           </div>
-
           <a
             href={job.applyUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-colors"
+            className="flex-none flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-[11px] transition-colors shadow-lg shadow-indigo-500/20"
           >
-            <span>Open Application</span>
-            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Open Application</span>
+            <span className="sm:hidden">Apply</span>
+            <ExternalLink className="w-3 h-3" />
           </a>
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col space-y-6">
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
+        {/* ===== 1. Company / job header — one efficient row ===== */}
+        <section className="flex items-center gap-3 animate-[prepFadeUp_0.3s_ease_both]">
+          <div className="flex-none w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/25">
+            {job.companyLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={job.companyLogo} alt={job.companyName} className="w-7 h-7 object-contain" />
+            ) : (
+              monogram
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 truncate">
+              {job.companyName}
+              {job.companySize && <span className="normal-case tracking-normal text-slate-600"> · {job.companySize}</span>}
+            </p>
+            <h1 className="text-lg sm:text-xl font-bold text-white leading-tight truncate">
+              {job.role}
+            </h1>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-slate-400 font-medium">
+              {job.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-slate-500" />
+                  {job.location}
+                </span>
+              )}
+              {job.workType && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-slate-500" />
+                  {job.workType}
+                </span>
+              )}
+              {matchScore != null && matchScore > 0 && (
+                <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                  <Target className="w-3 h-3" />
+                  {matchScore}% match
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex-none flex items-center gap-2">
+            {job.salary && job.salary !== 'Not disclosed' && (
+              <span className="hidden md:flex items-center px-2.5 py-1 rounded-lg border border-white/10 bg-white/[0.03] text-[11px] font-semibold text-slate-300">
+                {job.salary}
+              </span>
+            )}
+            <span className="flex items-center px-2.5 py-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[9px] font-black uppercase tracking-wider">
+              {application.status}
+            </span>
+          </div>
+        </section>
 
-        {/* Navigation Tabs Bar */}
-        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 border-slate-200 w-fit shadow-sm scroll-mt-36">
+        {/* ===== 2. Preparation summary — horizontal strip ===== */}
+        <section className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 animate-[prepFadeUp_0.35s_ease_both]">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">
+            Preparation
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="text-base font-black text-white leading-none">{prepPercent}%</span>
+            <span className="hidden sm:block w-36 h-1 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-700"
+                style={{ width: `${prepPercent}%` }}
+              />
+            </span>
+          </span>
+          {roadmap && (
+            <span className="text-xs text-slate-400 whitespace-nowrap">
+              <span className="text-slate-200 font-semibold">{topicsDone}/{topicsTotal}</span> topics
+            </span>
+          )}
+          {nextRecommended ? (
+            <span className="text-xs text-slate-400 truncate max-w-[260px]">
+              Next: <span className="text-indigo-300 font-semibold">{nextRecommended}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500">Generate a roadmap to see your plan.</span>
+          )}
           <button
-            onClick={() => setActiveTab('roadmap')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'roadmap'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-indigo-600'
-            }`}
+            onClick={goToRoadmap}
+            className="ml-auto flex-none flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 text-slate-200 font-bold text-[11px] transition-colors"
           >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>AI Roadmap & Tasks</span>
+            Continue Preparing
+            <ArrowRight className="w-3 h-3 text-indigo-400" />
           </button>
+        </section>
 
-          <button
-            onClick={() => setActiveTab('interview')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'interview'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-indigo-600'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4 text-emerald-300" />
-            <span>AI Mock Interview Simulator</span>
-          </button>
+        {/* ===== 3. Segmented tabs (compact) ===== */}
+        <nav className="flex items-center gap-0.5 p-0.5 rounded-lg border border-white/10 bg-white/[0.04] w-fit max-w-full overflow-x-auto prep-no-scrollbar">
+          {(
+            [
+              { id: 'roadmap', label: 'AI Roadmap', icon: <Sparkles className="w-3.5 h-3.5" /> },
+              { id: 'interview', label: 'Mock Interview', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+              { id: 'insights', label: 'Insights & Questions', icon: <BookOpen className="w-3.5 h-3.5" /> },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/25'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-          <button
-            onClick={() => setActiveTab('insights')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'insights'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-indigo-600'
-            }`}
-          >
-            <BookOpen className="w-4 h-4 text-sky-300" />
-            <span>Company Insights & Qs</span>
-          </button>
-        </div>
-
-        {/* --- TAB 1: AI ROADMAP & BITE-SIZED TASKS --- */}
+        {/* ============================================================
+            TAB 1: AI ROADMAP (compact timeline)
+        ============================================================ */}
         {activeTab === 'roadmap' && (
-          <div className="space-y-6">
-
-            {/* Generate or Regenerate Roadmap Banner */}
+          <div key="roadmap" className="space-y-3 animate-[prepFadeUp_0.25s_ease_both]">
             {!roadmap && roadmapStatus !== 'GENERATING' ? (
-              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-indigo-600 mb-4">
-                  <Sparkles className="w-7 h-7 animate-pulse" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">
-                  {roadmapStatus === 'FAILED'
-                    ? 'Roadmap Generation Failed'
-                    : 'Generate Company Specific AI Roadmap'}
-                </h3>
-                <p className="text-xs font-semibold text-slate-600 max-w-md mb-6 leading-relaxed">
-                  Gemini will analyze {job.companyName}&apos;s role requirements, tech stack, and recent interview
-                  reports to generate a 4-phase prep plan.
-                </p>
-                <button
-                  onClick={handleGenerateRoadmapClick}
-                  disabled={isGeneratingRoadmap}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>
-                    {isGeneratingRoadmap
-                      ? 'Building Custom Roadmap...'
-                      : roadmapStatus === 'FAILED'
-                        ? 'Retry AI Roadmap'
-                        : 'Generate AI Roadmap Now'}
-                  </span>
-                </button>
-              </div>
+              emptyState({
+                label: 'AI Roadmap',
+                title:
+                  roadmapStatus === 'FAILED'
+                    ? 'Unable to generate your roadmap'
+                    : 'Your personalized roadmap is waiting.',
+                description:
+                  roadmapStatus === 'FAILED'
+                    ? `The AI service couldn't complete the request for the ${job.companyName} ${job.role} role. Try again in a moment.`
+                    : `Generate a roadmap based on the actual ${job.companyName} ${job.role} role — requirements, tech stack, and interview reports.`,
+                actionLabel:
+                  roadmapStatus === 'FAILED'
+                    ? 'Try Again'
+                    : isGeneratingRoadmap
+                      ? 'Generating…'
+                      : 'Generate AI Roadmap',
+                onAction: handleGenerateRoadmapClick,
+                busy: isGeneratingRoadmap,
+              })
             ) : !roadmap && (roadmapStatus === 'GENERATING' || isGeneratingRoadmap) ? (
-              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
-                <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-4" />
-                <h3 className="text-xl font-black text-slate-900 mb-2">Generating Your Roadmap…</h3>
-                <p className="text-xs font-semibold text-slate-600 max-w-md">
-                  This runs as a background job. This page will update when Gemini finishes.
-                </p>
-              </div>
+              generationChecklist(ROADMAP_CHECKLIST, 'AI Roadmap', job.companyName)
             ) : roadmap ? (
-              <div className="space-y-6">
-
-                {/* Overall Strategic Focus Box */}
-                <div className="p-5 rounded-2xl bg-indigo-50 border-2 border-indigo-200 flex items-start gap-3">
-                  <Lightbulb className="w-5 h-5 text-amber-500 flex-none mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider">AI Strategic Focus</h4>
-                    <p className="text-xs text-slate-700 mt-1 font-bold">{roadmap.overallFocus}</p>
+              <div className="space-y-3">
+                {/* Strategic focus — slim strip */}
+                <section className="flex items-start gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] px-4 py-2.5 animate-[prepFadeUp_0.3s_ease_both]">
+                  <Lightbulb className="w-4 h-4 text-amber-400 flex-none mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] uppercase tracking-[0.18em] text-indigo-300 font-bold">
+                      AI Strategic Focus
+                    </p>
+                    <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                      {roadmap.overallFocus}
+                    </p>
                   </div>
-                </div>
+                </section>
 
-                {/* Stepper Header Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {roadmap.steps.map((step, idx) => {
-                    const stepDoneCount = step.tasks.filter((t) => t.completed).length;
-                    const stepTotal = step.tasks.length;
-                    const isSelected = selectedStepIndex === idx;
+                {/* Journey — compact vertical timeline */}
+                <section>
+                  <div className="flex items-center justify-between mb-1.5 px-0.5">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-bold">
+                      Interview Prep Journey
+                    </p>
+                    <span className="text-[10px] text-slate-500 font-semibold">
+                      {completedTasksCount}/{totalTasksCount} tasks done
+                    </span>
+                  </div>
+                  <div className="relative space-y-1">
+                    <div className="absolute left-[15px] top-5 bottom-5 w-px bg-gradient-to-b from-indigo-500/40 via-white/10 to-transparent" />
+                    {roadmap.steps.map((step, idx) => {
+                      const stepDone = step.tasks.filter((t) => t.completed).length;
+                      const stepTotal = step.tasks.length;
+                      const stepComplete = step.completed || (stepTotal > 0 && stepDone === stepTotal);
+                      const isSelected = selectedStepIndex === idx;
+                      const categories = [...new Set(step.tasks.map((t) => t.category))];
 
-                    return (
-                      <button
-                        key={step.id}
-                        onClick={() => setSelectedStepIndex(idx)}
-                        className={`p-4 rounded-2xl text-left border-2 transition-all ${
-                          isSelected
-                            ? 'bg-white border-indigo-600 shadow-md'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs mb-2">
-                          <span className="font-black text-indigo-600">Phase {step.stepNumber}</span>
-                          <span className="text-[10px] text-slate-500 font-bold">{step.estimatedMinutes} mins</span>
-                        </div>
-                        <h4 className="font-black text-slate-900 text-xs line-clamp-1 mb-1">{step.title}</h4>
-                        <p className="text-[11px] text-slate-500 font-medium line-clamp-1 mb-3">{step.subtitle}</p>
-
-                        <div className="flex items-center justify-between text-[10px] font-black text-slate-600">
-                          <span>{stepDoneCount}/{stepTotal} Tasks</span>
-                          <span className="text-emerald-700">{Math.round((stepDoneCount / (stepTotal || 1)) * 100)}%</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Selected Phase Detail Tasks */}
-                {roadmap.steps[selectedStepIndex] && (
-                  <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-6 shadow-sm">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 text-xs font-black bg-indigo-100 text-indigo-700 rounded-md border border-indigo-200">
-                          Phase {roadmap.steps[selectedStepIndex].stepNumber}
-                        </span>
-                        <h3 className="text-base font-black text-slate-900">
-                          {roadmap.steps[selectedStepIndex].title}
-                        </h3>
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500 mt-1">
-                        {roadmap.steps[selectedStepIndex].subtitle}
-                      </p>
-                    </div>
-
-                    {/* Bite-Sized Duolingo Checkable Tasks */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                        Actionable Practice Tasks
-                      </h4>
-
-                      <div className="space-y-2">
-                        {roadmap.steps[selectedStepIndex].tasks.map((task) => (
+                      return (
+                        <button
+                          key={step.id}
+                          onClick={() => setSelectedStepIndex(idx)}
+                          className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all animate-[prepFadeUp_0.3s_ease_both] ${
+                            isSelected
+                              ? 'border-indigo-500/50 bg-indigo-500/[0.07]'
+                              : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]'
+                          }`}
+                          style={{ animationDelay: `${idx * 0.06}s` }}
+                        >
                           <div
-                            key={task.id}
-                            onClick={() =>
-                              onUpdateTaskCompletion(
-                                application.id,
-                                roadmap.steps[selectedStepIndex].id,
-                                task.id,
-                                !task.completed
-                              )
-                            }
-                            className={`p-4 rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${
-                              task.completed
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                                : 'bg-white border-slate-200 hover:border-slate-300 text-slate-900'
+                            className={`flex-none w-8 h-8 rounded-lg border flex items-center justify-center ${
+                              stepComplete
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                                : isSelected
+                                  ? 'border-indigo-500/50 bg-indigo-500/15 text-indigo-300'
+                                  : 'border-white/10 bg-[#0A0C12] text-slate-500'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              {task.completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-none" />
-                              ) : (
-                                <Circle className="w-5 h-5 text-slate-400 flex-none" />
-                              )}
-                              <span className={`text-xs font-bold ${task.completed ? 'line-through text-slate-400' : ''}`}>
-                                {task.title}
+                            {stepComplete ? (
+                              <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                              <span className="text-[11px] font-black">
+                                {String(step.stepNumber).padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="text-xs font-bold text-white truncate">{step.title}</h4>
+                              <span className="flex-none flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
+                                <Clock className="w-2.5 h-2.5" />
+                                {step.estimatedMinutes}m
                               </span>
                             </div>
+                            <p className="text-[11px] text-slate-500 truncate">{step.subtitle}</p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="hidden sm:flex flex-wrap gap-1">
+                                {categories.map((c) => (
+                                  <span key={c}>{chip(c)}</span>
+                                ))}
+                              </span>
+                              <div className="hidden md:block h-0.5 w-20 rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${stepTotal > 0 ? Math.round((stepDone / stepTotal) * 100) : 0}%` }}
+                                />
+                              </div>
+                              <span className="flex-none text-[10px] text-slate-500 font-semibold">
+                                {stepDone}/{stepTotal}
+                              </span>
+                              {isSelected && !stepComplete && (
+                                <ArrowRight className="w-3 h-3 text-indigo-400 flex-none" />
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
 
-                            <span className="px-2.5 py-1 text-[10px] font-black bg-slate-100 text-slate-600 rounded-lg">
-                              {task.category}
+                {/* Selected phase detail — compact */}
+                {roadmap.steps[selectedStepIndex] && (
+                  <section
+                    key={`detail-${selectedStepIndex}`}
+                    className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3.5 animate-[prepFadeUp_0.25s_ease_both]"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[9px] font-black uppercase tracking-wider">
+                        Phase {roadmap.steps[selectedStepIndex].stepNumber}
+                      </span>
+                      <h3 className="text-sm font-bold text-white">
+                        {roadmap.steps[selectedStepIndex].title}
+                      </h3>
+                      <span className="ml-auto text-[10px] text-slate-500 font-semibold">
+                        ~{roadmap.steps[selectedStepIndex].estimatedMinutes} min
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 -mt-1">
+                      {roadmap.steps[selectedStepIndex].subtitle}
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-bold">
+                        Actionable Practice Tasks
+                      </p>
+                      {roadmap.steps[selectedStepIndex].tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={() =>
+                            onUpdateTaskCompletion(
+                              application.id,
+                              roadmap.steps[selectedStepIndex].id,
+                              task.id,
+                              !task.completed
+                            )
+                          }
+                          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                            task.completed
+                              ? 'bg-emerald-500/[0.06] border-emerald-500/30'
+                              : 'bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {task.completed ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-none" />
+                            ) : (
+                              <Circle className="w-4 h-4 text-slate-600 flex-none" />
+                            )}
+                            <span
+                              className={`text-xs font-medium leading-snug ${
+                                task.completed ? 'text-slate-500 line-through' : 'text-slate-300'
+                              }`}
+                            >
+                              {task.title}
                             </span>
                           </div>
-                        ))}
-                      </div>
+                          <span className="flex-none px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/10 text-slate-500 text-[9px] font-bold">
+                            {task.category}
+                          </span>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Recommended Resources */}
                     {roadmap.steps[selectedStepIndex].resources.length > 0 && (
-                      <div className="pt-4 border-t-2 border-slate-100">
-                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">
+                      <div className="pt-2.5 border-t border-white/10">
+                        <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-bold mb-2">
                           Recommended Study Links
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
                           {roadmap.steps[selectedStepIndex].resources.map((res, idx) => (
                             <a
                               key={idx}
                               href={res.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 border-2 border-slate-200 text-xs font-bold text-indigo-600 hover:border-indigo-500 transition-colors"
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] text-[11px] font-bold text-slate-300 hover:text-white hover:border-white/25 hover:bg-white/[0.06] transition-colors"
                             >
-                              <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                              <BookOpen className="w-3 h-3 text-indigo-400" />
                               <span>{res.title}</span>
-                              <ExternalLink className="w-3 h-3 text-slate-400" />
+                              <ExternalLink className="w-2.5 h-2.5 text-slate-500" />
                             </a>
                           ))}
                         </div>
                       </div>
                     )}
-
-                  </div>
+                  </section>
                 )}
-
               </div>
             ) : null}
-
           </div>
         )}
 
-        {/* --- TAB 2: AI MOCK INTERVIEW SIMULATOR --- */}
+        {/* ============================================================
+            TAB 2: MOCK INTERVIEW (viewport-efficient)
+        ============================================================ */}
         {activeTab === 'interview' && (
-          <div className="flex-1 rounded-3xl bg-white border-2 border-slate-200 p-4 sm:p-6 flex flex-col gap-4 shadow-sm">
-
-            {/* Simulator header: title + voice toggle */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div key="interview" className="space-y-3 animate-[prepFadeUp_0.25s_ease_both]">
+            {/* Header row */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <Video className="w-4 h-4 text-indigo-600" />
-                  Mock Interview Simulator
-                </h3>
-                <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                  Answer the {job.companyName} interviewer in text, or tap the mic and speak — your voice is transcribed into the answer box. Enable voice to hear questions spoken back.
-                </p>
+                {eyebrow('Mock Interview')}
+                <h2 className="text-sm font-bold text-white mt-0.5">
+                  {job.companyName} · {job.role}
+                </h2>
               </div>
-
               {speechSupported && (
                 <button
                   onClick={() => {
@@ -578,372 +822,442 @@ export const CompanyPrepDetail: React.FC<CompanyPrepDetailProps> = ({
                       stop();
                     }
                   }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all border-2 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
                     speechEnabled
-                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                      : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25'
                   }`}
                 >
-                  {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  {speechEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                   <span>{speechEnabled ? (speaking ? 'Speaking…' : 'Voice On') : 'Voice Off'}</span>
                 </button>
               )}
             </div>
 
-            {/* LiveKit video conference room — mic auto-mutes while transcribing */}
-            <LiveKitCall
-              applicationId={application.id}
-              participantName={userProfile.name || 'Candidate'}
-              transcriptionActive={isListening}
-              interviewerSpeaking={speaking}
-              interviewerQuestion={openingQuestion}
-              companyName={job.companyName}
-            />
-
-            {/* Chat Messages Log */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 h-[340px] scrollbar-thin scrollbar-thumb-slate-200">
-              {chatMessages.map((msg) => (
+            {/* Session progress — one line */}
+            <div className="flex items-center gap-3">
+              <span className="flex-none text-[11px] text-slate-400 font-semibold">
+                Question <span className="text-white font-bold">{currentQuestionNumber}</span> of 10
+              </span>
+              <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
                 <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                >
-                  <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400 mb-1">
-                    <span>{msg.sender === 'user' ? userProfile.name : `${job.companyName} Lead Interviewer`}</span>
-                    <span>•</span>
-                    <span>{msg.timestamp}</span>
-                    {msg.sender === 'ai' && speechSupported && msg.text && (
-                      <button
-                        onClick={() => speakMessage(msg.text)}
-                        title="Hear this question read aloud"
-                        className="p-0.5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        <Volume2 className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div
-                    className={`p-4 rounded-2xl max-w-2xl text-xs leading-relaxed font-semibold ${
-                      msg.sender === 'user'
-                        ? 'bg-indigo-600 text-white rounded-tr-none shadow-sm'
-                        : 'bg-slate-100 border-2 border-slate-200 text-slate-900 rounded-tl-none'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
-
-                    {/* AI Feedback evaluation card if present */}
-                    {msg.feedback && (
-                      <div className="mt-3 pt-3 border-t-2 border-slate-200 bg-white p-3 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-black text-indigo-600">AI Interview Feedback</span>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-black rounded-md ${
-                              msg.feedback.rating === 'Excellent'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {msg.feedback.rating} ({msg.feedback.score}/100)
-                          </span>
-                        </div>
-
-                        {msg.feedback.pros.length > 0 && (
-                          <div className="text-[11px] text-emerald-700 font-bold">
-                            <strong>Pros:</strong> {msg.feedback.pros.join(', ')}
-                          </div>
-                        )}
-
-                        {msg.feedback.improvements.length > 0 && (
-                          <div className="text-[11px] text-amber-800 font-bold">
-                            <strong>To Polish:</strong> {msg.feedback.improvements.join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {isAiResponding && (
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-slate-100 p-3 rounded-2xl w-fit border-2 border-slate-200">
-                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
-                  <span>{job.companyName} Interviewer is analyzing your answer...</span>
-                </div>
+                  className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (currentQuestionNumber / 10) * 100)}%` }}
+                />
+              </div>
+              {speaking && (
+                <span className="flex-none flex items-center gap-1.5 text-[9px] text-indigo-300 font-bold uppercase tracking-wider">
+                  Speaking
+                  <span className="flex items-end gap-0.5 h-2.5">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="w-0.5 h-full rounded-full bg-indigo-400"
+                        style={{ animation: `prepDot 1s ease-in-out ${i * 0.15}s infinite` }}
+                      />
+                    ))}
+                  </span>
+                </span>
               )}
             </div>
 
-            {/* Message Input Box */}
-            {sttError && (
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-rose-700 bg-rose-50 border-2 border-rose-200 rounded-xl px-3 py-2">
-                <span className="flex-1 min-w-0">{sttError}</span>
-                {audioTx.state === 'recording' ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleRecordClick()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white font-black text-[10px] animate-pulse"
-                  >
-                    <Square className="w-3 h-3" />
-                    Stop & transcribe
-                  </button>
-                ) : audioTx.state === 'transcribing' ? (
-                  <span className="flex items-center gap-1.5 text-indigo-600">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Transcribing…
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleRecordClick()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-black text-[10px]"
-                  >
-                    <Mic className="w-3 h-3" />
-                    Record answer with mic
-                  </button>
-                )}
+            {/* Video + transcript */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-3">
+              <div className="min-w-0">
+                <LiveKitCall
+                  applicationId={application.id}
+                  participantName={userProfile.name || 'Candidate'}
+                  transcriptionActive={isListening}
+                  interviewerSpeaking={speaking}
+                  interviewerQuestion={openingQuestion}
+                  companyName={job.companyName}
+                />
+                <p className="mt-1.5 text-[10px] text-slate-500 font-medium leading-relaxed px-0.5">
+                  Answer in text, tap the mic to speak (transcribed automatically), or record with the mic. Enable voice to hear questions spoken back.
+                </p>
               </div>
-            )}
-            {audioTx.error && (
-              <p className="text-[11px] font-bold text-rose-600 bg-rose-50 border-2 border-rose-200 rounded-xl px-3 py-2">
-                {audioTx.error}
-              </p>
-            )}
-            <form onSubmit={handleSendInterviewMessage} className="flex items-center gap-2 pt-3 border-t-2 border-slate-100">
-              <input
-                type="text"
-                placeholder={isListening ? 'Listening — speak your answer…' : 'Type or speak your technical answer here...'}
-                value={isListening ? `${inputMessage}${interimTranscript ? ' ' + interimTranscript : ''}` : inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                disabled={isAiResponding}
-                className={`flex-1 px-4 py-3 rounded-2xl border-2 text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none transition-colors ${
-                  isListening
-                    ? 'bg-rose-50 border-rose-300 focus:border-rose-500'
-                    : 'bg-white border-slate-200 focus:border-indigo-600'
-                }`}
-              />
-              {sttSupported ? (
-                <button
-                  type="button"
-                  onClick={handleMicClick}
-                  disabled={isAiResponding || !sttSupported}
-                  title={
-                    sttSupported
-                      ? isListening
-                        ? 'Stop listening'
-                        : 'Speak your answer — transcribed to text'
-                      : 'Voice input is not supported in this browser'
-                  }
-                  className={`p-3 rounded-2xl border-2 flex items-center gap-1.5 text-xs font-black transition-all disabled:opacity-40 shadow-sm ${
-                    isListening
-                      ? 'bg-rose-600 border-rose-600 text-white animate-pulse'
-                      : sttSupported
-                        ? 'bg-white border-slate-200 text-slate-700 hover:border-rose-300 hover:text-rose-600'
-                        : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  {isListening ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                  <span className="hidden sm:inline">{isListening ? 'Listening' : 'Speak'}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handleRecordClick()}
-                  disabled={isAiResponding || audioTx.state === 'transcribing'}
-                  title={
-                    audioTx.state === 'recording'
-                      ? 'Stop recording and transcribe'
-                      : 'Record your answer with the mic'
-                  }
-                  className={`p-3 rounded-2xl border-2 flex items-center gap-1.5 text-xs font-black transition-all disabled:opacity-40 shadow-sm ${
-                    audioTx.state === 'recording'
-                      ? 'bg-rose-600 border-rose-600 text-white animate-pulse'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-rose-300 hover:text-rose-600'
-                  }`}
-                >
-                  {audioTx.state === 'recording' ? (
-                    <Square className="w-4 h-4" />
-                  ) : audioTx.state === 'transcribing' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Mic className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {audioTx.state === 'recording'
-                      ? 'Stop'
-                      : audioTx.state === 'transcribing'
-                        ? 'Transcribing…'
-                        : 'Record'}
-                  </span>
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={!inputMessage.trim() || isAiResponding}
-                className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 transition-all disabled:opacity-40 shadow-sm"
-              >
-                <span>Submit</span>
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
 
+              {/* Transcript — fills the row height on desktop */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] flex flex-col h-[440px] lg:h-auto lg:min-h-[420px]">
+                <div className="flex-none px-4 py-2.5 border-b border-white/10 flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200">
+                    <Video className="w-3 h-3 text-indigo-400" />
+                    Live Transcript
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-semibold truncate">
+                    {job.companyName} Lead Interviewer
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+                    >
+                      <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 mb-0.5">
+                        <span>{msg.sender === 'user' ? userProfile.name : `${job.companyName} Interviewer`}</span>
+                        <span>·</span>
+                        <span>{msg.timestamp}</span>
+                        {msg.sender === 'ai' && speechSupported && msg.text && (
+                          <button
+                            onClick={() => speakMessage(msg.text)}
+                            title="Hear this read aloud"
+                            className="p-0.5 rounded-md hover:bg-white/10 text-slate-500 hover:text-indigo-300 transition-colors"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div
+                        className={`p-3 rounded-xl max-w-[94%] text-[11px] leading-relaxed font-medium ${
+                          msg.sender === 'user'
+                            ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-50 rounded-tr-sm'
+                            : 'bg-white/[0.05] border border-white/10 text-slate-200 rounded-tl-sm'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+
+                        {/* AI feedback card */}
+                        {msg.feedback && (
+                          <div className="mt-2.5 pt-2.5 border-t border-white/10 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-indigo-300">AI Interview Feedback</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${
+                                  msg.feedback.rating === 'Excellent'
+                                    ? 'bg-emerald-500/15 text-emerald-300'
+                                    : 'bg-amber-500/15 text-amber-300'
+                                }`}
+                              >
+                                {msg.feedback.rating} ({msg.feedback.score}/100)
+                              </span>
+                            </div>
+                            {msg.feedback.pros.length > 0 && (
+                              <p className="text-[10px] text-emerald-300 font-semibold leading-relaxed">
+                                <strong>Pros:</strong> {msg.feedback.pros.join(', ')}
+                              </p>
+                            )}
+                            {msg.feedback.improvements.length > 0 && (
+                              <p className="text-[10px] text-amber-300/90 font-semibold leading-relaxed">
+                                <strong>To Polish:</strong> {msg.feedback.improvements.join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isAiResponding && (
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-300">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>{job.companyName} Interviewer is analyzing your answer…</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input */}
+                <div className="flex-none border-t border-white/10 p-2.5 space-y-2">
+                  {sttError && (
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/25 rounded-lg px-2.5 py-1.5">
+                      <span className="flex-1 min-w-0">{sttError}</span>
+                      {audioTx.state === 'recording' ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordClick()}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-500/90 text-white font-black text-[9px] animate-pulse"
+                        >
+                          <Square className="w-2.5 h-2.5" />
+                          Stop & transcribe
+                        </button>
+                      ) : audioTx.state === 'transcribing' ? (
+                        <span className="flex items-center gap-1.5 text-indigo-300">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Transcribing…
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleRecordClick()}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-500 text-white font-black text-[9px]"
+                        >
+                          <Mic className="w-2.5 h-2.5" />
+                          Record with mic
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {audioTx.error && (
+                    <p className="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/25 rounded-lg px-2.5 py-1.5">
+                      {audioTx.error}
+                    </p>
+                  )}
+
+                  <form onSubmit={handleSendInterviewMessage} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder={
+                        isListening
+                          ? 'Listening — speak your answer…'
+                          : 'Type or speak your technical answer here…'
+                      }
+                      value={
+                        isListening
+                          ? `${inputMessage}${interimTranscript ? ' ' + interimTranscript : ''}`
+                          : inputMessage
+                      }
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      disabled={isAiResponding}
+                      className={`flex-1 min-w-0 px-3 py-2 rounded-lg border text-[11px] font-semibold text-white placeholder-slate-500 bg-[#0A0C12] focus:outline-none transition-colors ${
+                        isListening
+                          ? 'border-rose-500/60 focus:border-rose-400'
+                          : 'border-white/10 focus:border-indigo-500'
+                      }`}
+                    />
+                    {sttSupported ? (
+                      <button
+                        type="button"
+                        onClick={handleMicClick}
+                        disabled={isAiResponding || !sttSupported}
+                        title={
+                          sttSupported
+                            ? isListening
+                              ? 'Stop listening'
+                              : 'Speak your answer — transcribed to text'
+                            : 'Voice input is not supported in this browser'
+                        }
+                        className={`flex-none p-2 rounded-lg border transition-all disabled:opacity-40 ${
+                          isListening
+                            ? 'bg-rose-500/90 border-rose-400 text-white animate-pulse'
+                            : 'border-white/10 bg-white/[0.04] text-slate-300 hover:text-rose-300 hover:border-rose-500/40'
+                        }`}
+                      >
+                        {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleRecordClick()}
+                        disabled={isAiResponding || audioTx.state === 'transcribing'}
+                        title={
+                          audioTx.state === 'recording'
+                            ? 'Stop recording and transcribe'
+                            : 'Record your answer with the mic'
+                        }
+                        className={`flex-none p-2 rounded-lg border transition-all disabled:opacity-40 ${
+                          audioTx.state === 'recording'
+                            ? 'bg-rose-500/90 border-rose-400 text-white animate-pulse'
+                            : 'border-white/10 bg-white/[0.04] text-slate-300 hover:text-rose-300 hover:border-rose-500/40'
+                        }`}
+                      >
+                        {audioTx.state === 'recording' ? (
+                          <Square className="w-3.5 h-3.5" />
+                        ) : audioTx.state === 'transcribing' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Mic className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!inputMessage.trim() || isAiResponding}
+                      className="flex-none flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-[11px] transition-colors disabled:opacity-40 disabled:hover:bg-indigo-500 shadow-lg shadow-indigo-500/20"
+                    >
+                      <span className="hidden sm:inline">Submit</span>
+                      <Send className="w-3 h-3" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* --- TAB 3: COMPANY INSIGHTS & QUESTIONS --- */}
+        {/* ============================================================
+            TAB 3: INSIGHTS & QUESTIONS (dense 2-column)
+        ============================================================ */}
         {activeTab === 'insights' && (
-          <div className="space-y-6">
-
-            {/* Generate CTA / Generating / Content */}
+          <div key="insights" className="space-y-3 animate-[prepFadeUp_0.25s_ease_both]">
             {!insights && insightsStatus !== 'GENERATING' ? (
-              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-sky-100 border-2 border-sky-200 flex items-center justify-center text-sky-600 mb-4">
-                  <BookOpen className="w-7 h-7 animate-pulse" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">
-                  {insightsStatus === 'FAILED'
-                    ? 'Insights Generation Failed'
-                    : 'Generate Company Insights & Questions'}
-                </h3>
-                <p className="text-xs font-semibold text-slate-600 max-w-md mb-6 leading-relaxed">
-                  Gemini will research {job.companyName}&apos;s products, engineering culture, interview process and
-                  this role&apos;s requirements to build a tailored question bank and prep brief.
-                </p>
-                <button
-                  onClick={handleGenerateInsightsClick}
-                  disabled={isGeneratingInsights}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs shadow-lg shadow-sky-200 transition-all disabled:opacity-50"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>
-                    {isGeneratingInsights
-                      ? 'Researching Company...'
-                      : insightsStatus === 'FAILED'
-                        ? 'Retry Insights & Qs'
-                        : 'Generate Insights Now'}
-                  </span>
-                </button>
-              </div>
+              emptyState({
+                label: 'Company Intelligence',
+                title:
+                  insightsStatus === 'FAILED'
+                    ? 'Unable to generate insights'
+                    : 'Your company briefing is waiting.',
+                description:
+                  insightsStatus === 'FAILED'
+                    ? `The AI service couldn't complete the request for ${job.companyName}. Try again in a moment.`
+                    : `Everything you should know before interviewing at ${job.companyName} — interview process, culture, tech stack, and likely questions.`,
+                actionLabel:
+                  insightsStatus === 'FAILED'
+                    ? 'Try Again'
+                    : isGeneratingInsights
+                      ? 'Researching…'
+                      : 'Generate Insights',
+                onAction: handleGenerateInsightsClick,
+                busy: isGeneratingInsights,
+                accent: 'sky',
+              })
             ) : !insights && (insightsStatus === 'GENERATING' || isGeneratingInsights) ? (
-              <div className="p-8 rounded-3xl bg-white border-2 border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
-                <RefreshCw className="w-8 h-8 text-sky-600 animate-spin mb-4" />
-                <h3 className="text-xl font-black text-slate-900 mb-2">Researching {job.companyName}…</h3>
-                <p className="text-xs font-semibold text-slate-600 max-w-md">
-                  Gemini is building your company briefing. This page will update automatically when it finishes.
-                </p>
-              </div>
+              generationChecklist(INSIGHTS_CHECKLIST, 'Company Intelligence', job.companyName)
             ) : insights ? (
-              <>
-                {/* Company Overview */}
-                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-3 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-sky-600" />
-                    <h3 className="font-black text-xs text-sky-700 uppercase tracking-wider">
-                      {insights.companyName} — {insights.role}
-                    </h3>
+              <div className="space-y-3">
+                {/* Hero strip */}
+                <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 animate-[prepFadeUp_0.25s_ease_both]">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">{eyebrow('Company Intelligence', 'text-sky-400')}</div>
+                    <h2 className="text-sm font-bold text-white mt-0.5">
+                      Everything you should know before interviewing at{' '}
+                      <span className="text-sky-300">{insights.companyName}</span>.
+                    </h2>
                   </div>
-                  <p className="text-sm text-slate-700 leading-relaxed font-semibold">{insights.overview}</p>
-
-                  {insights.techStack.length > 0 && (
-                    <div className="pt-2">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Wrench className="w-3 h-3" /> Tech Stack
-                      </h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {insights.techStack.map((tech) => (
-                          <span
-                            key={tech}
-                            className="px-2.5 py-1 text-[10px] font-black bg-sky-50 text-sky-800 rounded-full border border-sky-200"
-                          >
-                            {tech}
-                          </span>
-                        ))}
-                      </div>
+                  {job.tags.length > 0 && (
+                    <div className="ml-auto flex flex-wrap gap-1">
+                      {job.tags.slice(0, 8).map((t) => (
+                        <span key={t}>{chip(t, true)}</span>
+                      ))}
                     </div>
                   )}
-                </div>
+                </section>
 
-                {/* Interview Process */}
-                {insights.interviewProcess.length > 0 && (
-                  <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-                    <h3 className="font-black text-xs text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-indigo-600" />
-                      <span>Typical Interview Process</span>
-                    </h3>
-                    <div className="space-y-2.5">
-                      {insights.interviewProcess.map((stage, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <span className="flex-none w-7 h-7 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center text-[10px] font-black">
-                            {idx + 1}
-                          </span>
-                          <p className="text-xs font-bold text-slate-800 leading-relaxed pt-1">{stage}</p>
+                {/* Dense 2-column grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {/* Company overview + tech stack */}
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2.5 animate-[prepFadeUp_0.3s_ease_both]">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-3.5 h-3.5 text-sky-400" />
+                      <h3 className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">
+                        Company Overview
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{insights.overview}</p>
+                    {insights.techStack.length > 0 && (
+                      <div className="pt-1.5 border-t border-white/[0.06]">
+                        <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-bold mb-1.5 flex items-center gap-1.5">
+                          <Wrench className="w-3 h-3" /> Technology Stack
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {insights.techStack.map((tech) => (
+                            <span
+                              key={tech}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold border border-sky-500/30 bg-sky-500/10 text-sky-300"
+                            >
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Interview process */}
+                  {insights.interviewProcess.length > 0 && (
+                    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2.5 animate-[prepFadeUp_0.35s_ease_both]">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                        <h3 className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">
+                          Interview Process
+                        </h3>
+                      </div>
+                      <div className="relative space-y-1.5">
+                        <div className="absolute left-[9px] top-3 bottom-3 w-px bg-gradient-to-b from-indigo-500/40 to-transparent" />
+                        {insights.interviewProcess.map((stage, idx) => (
+                          <div key={idx} className="flex items-start gap-2.5">
+                            <span className="relative z-10 flex-none w-5 h-5 rounded-full border border-indigo-500/40 bg-[#0A0C12] text-indigo-300 flex items-center justify-center text-[9px] font-black">
+                              {idx + 1}
+                            </span>
+                            <p className="text-[11px] font-medium text-slate-300 leading-snug pt-0.5">
+                              {stage}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Culture & values */}
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2.5 animate-[prepFadeUp_0.4s_ease_both]">
+                    <div className="flex items-center gap-2">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                      <h3 className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">
+                        Culture & Values
+                      </h3>
+                    </div>
+                    <div className="space-y-2">
+                      {(insights.keyProductInsights.length > 0
+                        ? insights.keyProductInsights
+                        : FALLBACK_INSIGHTS
+                      ).map((insight, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2.5 p-2.5 rounded-lg border border-amber-500/15 bg-amber-500/[0.05] text-[11px] font-medium text-slate-200 leading-relaxed"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400/80 flex-none mt-0.5" />
+                          <span>{insight}</span>
                         </div>
                       ))}
                     </div>
+                  </section>
+
+                  {/* Prep tips */}
+                  {insights.prepTips.length > 0 && (
+                    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2.5 animate-[prepFadeUp_0.45s_ease_both]">
+                      <div className="flex items-center gap-2">
+                        <ListChecks className="w-3.5 h-3.5 text-emerald-400" />
+                        <h3 className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">
+                          Preparation Tips
+                        </h3>
+                      </div>
+                      <div className="space-y-1.5">
+                        {insights.prepTips.map((tip, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-2.5 p-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.05] text-[11px] font-medium text-slate-200 leading-relaxed"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-none mt-0.5" />
+                            <span>{tip}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+
+                {/* Likely interview questions — full width */}
+                <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2.5 animate-[prepFadeUp_0.5s_ease_both]">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                    <h3 className="font-bold text-[11px] text-slate-300 uppercase tracking-wider">
+                      Likely Interview Questions
+                    </h3>
                   </div>
-                )}
-
-                {/* Real Interview Questions */}
-                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-                  <h3 className="font-black text-xs text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-indigo-600" />
-                    <span>Frequently Asked Interview Questions at {insights.companyName}</span>
-                  </h3>
-
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {(insights.sampleQuestions.length > 0
                       ? insights.sampleQuestions
                       : FALLBACK_QUESTIONS
                     ).map((q, idx) => (
-                      <div key={idx} className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-xs font-bold text-slate-800">
-                        <span className="font-black text-indigo-600 mr-2">Q{idx + 1}:</span>
-                        <span>{q}</span>
+                      <div
+                        key={idx}
+                        className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] transition-colors group"
+                      >
+                        <span className="flex-none text-[10px] font-black text-indigo-400 pt-0.5 w-5">
+                          {String(idx + 1).padStart(2, '0')}
+                        </span>
+                        <p className="text-[11px] font-medium text-slate-300 leading-relaxed flex-1">
+                          {q}
+                        </p>
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Product & Culture Insights */}
-                <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-                  <h3 className="font-black text-xs text-amber-700 uppercase tracking-wider flex items-center gap-2">
-                    <Award className="w-4 h-4 text-amber-600" />
-                    <span>Engineering Culture & Product Insights</span>
-                  </h3>
-
-                  <div className="space-y-3">
-                    {(insights.keyProductInsights.length > 0
-                      ? insights.keyProductInsights
-                      : FALLBACK_INSIGHTS
-                    ).map((insight, idx) => (
-                      <div key={idx} className="flex items-start gap-3 p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-200 text-xs font-bold text-indigo-900">
-                        <Sparkles className="w-4 h-4 text-indigo-600 flex-none mt-0.5" />
-                        <span>{insight}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Prep Tips */}
-                {insights.prepTips.length > 0 && (
-                  <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 space-y-4 shadow-sm">
-                    <h3 className="font-black text-xs text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                      <ListChecks className="w-4 h-4 text-emerald-600" />
-                      <span>Actionable Prep Tips</span>
-                    </h3>
-                    <div className="space-y-3">
-                      {insights.prepTips.map((tip, idx) => (
-                        <div key={idx} className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-xs font-bold text-emerald-900">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-none mt-0.5" />
-                          <span>{tip}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+                </section>
+              </div>
             ) : null}
-
           </div>
         )}
-
       </div>
     </div>
   );
