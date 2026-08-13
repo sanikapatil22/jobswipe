@@ -18,7 +18,8 @@ export const JobCard: React.FC<JobCardProps> = ({
 }) => {
   const hasApplyUrl = Boolean(job.applyUrl?.trim());
   const postedDate = job.postedDate || job.deadline;
-  const postedLabel = new Date(postedDate).toLocaleDateString(undefined, {
+  // Fixed locale so the server and client render the exact same string (no hydration mismatch).
+  const postedLabel = new Date(postedDate).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

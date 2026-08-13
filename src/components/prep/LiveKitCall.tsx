@@ -1,34 +1,49 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent, type Participant } from 'livekit-client';
+import { Room, RoomEvent } from 'livekit-client';
 import {
   AlertTriangle,
   Camera,
   CameraOff,
   Loader2,
+  Lock,
   Mic,
   MicOff,
   PhoneOff,
   Video,
 } from 'lucide-react';
+import { AIInterviewerTile } from './AIInterviewerTile';
 
 interface LiveKitCallProps {
   applicationId: string;
   participantName: string;
   onConnectedChange?: (connected: boolean) => void;
+  /** When true (user is dictating an answer), the call mic auto-mutes so the
+   *  browser speech recognizer can capture the microphone. */
+  transcriptionActive?: boolean;
+  /** Interviewer TTS is speaking — the AI tile animates its waveform. */
+  interviewerSpeaking?: boolean;
+  /** Current question shown on the AI interviewer tile. */
+  interviewerQuestion?: string;
+  companyName?: string;
 }
 
 /**
  * LiveKit-powered video call panel for the AI Mock Interview Simulator.
- * The user joins a private room; the AI interviewer "attends" via the chat +
- * TTS sidebar. Degrades gracefully (disabled panel + setup hint) when
- * LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL are not configured.
+ * The user joins a private, invite-only room (random name, max 2
+ * participants); the AI interviewer is simulated — a live animated tile
+ * (avatar + TTS-synced waveform + current question) instead of a black
+ * remote-video panel. Degrades gracefully when LiveKit env vars are missing.
  */
 export const LiveKitCall: React.FC<LiveKitCallProps> = ({
   applicationId,
   participantName,
   onConnectedChange,
+  transcriptionActive = false,
+  interviewerSpeaking = false,
+  interviewerQuestion,
+  companyName = 'AI',
 }) => {
   const [probe, setProbe] = useState<'loading' | 'configured' | 'missing'>('loading');
   const [probeError, setProbeError] = useState('');
@@ -37,10 +52,11 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [error, setError] = useState('');
+  const [roomName, setRoomName] = useState('');
 
   const roomRef = useRef<Room | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const micAutoMutedRef = useRef(false);
 
   // Probe whether LiveKit is configured.
   useEffect(() => {
@@ -71,16 +87,6 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
     };
   }, []);
 
-  // Render remote participant videos as they join.
-  const attachRemote = useCallback((participant: Participant) => {
-    participant.trackPublications.forEach((pub) => {
-      if (pub.track && pub.kind === 'video') {
-        const el = remoteVideoRef.current;
-        if (el) pub.track.attach(el);
-      }
-    });
-  }, []);
-
   const join = useCallback(async () => {
     if (!roomRef.current) {
       roomRef.current = new Room({ adaptiveStream: true, dynacast: true });
@@ -89,11 +95,15 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
     setConnecting(true);
     setError('');
     try {
+      // Private room: unique, unguessable name per session.
+      const name = `interview-${applicationId}-${Math.random().toString(36).slice(2, 10)}`;
+      setRoomName(name);
+
       const res = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          room: `interview-${applicationId}`,
+          room: name,
           identity: `${participantName}-${Math.random().toString(36).slice(2, 8)}`,
         }),
       });
@@ -106,11 +116,6 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
       await room.localParticipant.setCameraEnabled(true);
       await room.localParticipant.setMicrophoneEnabled(true);
 
-      room.on(RoomEvent.TrackSubscribed, (track) => {
-        const el = remoteVideoRef.current;
-        if (el) track.attach(el);
-      });
-      room.on(RoomEvent.ParticipantConnected, attachRemote);
       room.on(RoomEvent.LocalTrackPublished, (pub) => {
         if (pub.track && pub.kind === 'video') {
           const el = localVideoRef.current;
@@ -133,7 +138,7 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
     } finally {
       setConnecting(false);
     }
-  }, [applicationId, participantName, attachRemote, onConnectedChange]);
+  }, [applicationId, participantName, onConnectedChange]);
 
   const leave = useCallback(async () => {
     const room = roomRef.current;
@@ -144,6 +149,7 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
     setConnected(false);
     setCameraOn(true);
     setMicOn(true);
+    setRoomName('');
     onConnectedChange?.(false);
   }, [onConnectedChange]);
 
@@ -160,6 +166,24 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
     await roomRef.current.localParticipant.setMicrophoneEnabled(next);
     setMicOn(next);
   }, [micOn]);
+
+  // Release the microphone for speech-to-text while the user is dictating,
+  // then restore it afterwards.
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room || !connected) return;
+    if (transcriptionActive) {
+      if (micOn) {
+        micAutoMutedRef.current = true;
+        void room.localParticipant.setMicrophoneEnabled(false);
+        setMicOn(false);
+      }
+    } else if (micAutoMutedRef.current) {
+      micAutoMutedRef.current = false;
+      void room.localParticipant.setMicrophoneEnabled(true);
+      setMicOn(true);
+    }
+  }, [transcriptionActive, connected, micOn]);
 
   // Re-attach local video whenever the call connects (publications can land late).
   useEffect(() => {
@@ -220,6 +244,10 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
             Turn on your camera and mic for a realistic interview setup. The
             {` `}interviewer reads your answers and speaks back via the chat.
           </p>
+          <p className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 mb-4">
+            <Lock className="w-3 h-3" />
+            Private room — only you can join; nobody else has access.
+          </p>
           {error && (
             <p className="text-rose-400 text-xs font-bold mb-3 max-w-sm">{error}</p>
           )}
@@ -238,22 +266,34 @@ export const LiveKitCall: React.FC<LiveKitCallProps> = ({
         </div>
       ) : (
         <div>
+          <div className="flex items-center justify-between px-3 pt-2">
+            <span className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400">
+              <Lock className="w-3 h-3" />
+              Private room · {roomName}
+            </span>
+            <span className="text-[10px] font-bold text-slate-400">
+              1 participant · you + AI interviewer
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
             <div className="relative rounded-xl overflow-hidden bg-slate-800 aspect-video">
               <video ref={localVideoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
               <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-black">
                 You
               </span>
+              {!cameraOn && (
+                <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                  <CameraOff className="w-8 h-8 text-slate-600" />
+                </div>
+              )}
             </div>
-            <div className="relative rounded-xl overflow-hidden bg-slate-800 aspect-video flex items-center justify-center">
-              <video ref={remoteVideoRef} className="w-full h-full object-cover" autoPlay playsInline />
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-black">
-                Interviewer
-              </span>
-              <span className="text-slate-500 text-[10px] font-bold">
-                AI interviewer joins via voice
-              </span>
-            </div>
+            <AIInterviewerTile
+              companyName={companyName}
+              speaking={interviewerSpeaking}
+              listening={transcriptionActive}
+              question={interviewerQuestion}
+            />
           </div>
 
           <div className="flex items-center justify-center gap-2 p-3">

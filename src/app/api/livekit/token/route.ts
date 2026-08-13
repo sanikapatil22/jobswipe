@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { auth } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -40,6 +40,19 @@ export async function POST(req: NextRequest) {
   // Config probe — no token needed.
   if (!data.room || !data.identity) {
     return NextResponse.json({ configured: true });
+  }
+
+  // Ensure the room is private: cap at 2 participants (you + the AI
+  // interviewer), with no guests or anonymous joins.
+  try {
+    const roomService = new RoomServiceClient(url, apiKey, apiSecret);
+    await roomService.createRoom({
+      name: data.room,
+      maxParticipants: 2,
+      emptyTimeout: 10 * 60,
+    });
+  } catch {
+    // Room already exists — fine, it keeps its limits.
   }
 
   const at = new AccessToken(apiKey, apiSecret, {

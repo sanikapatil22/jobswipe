@@ -1,15 +1,33 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
-import { ArrowUpRight, Bookmark, RotateCcw, Search, Sparkles, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Bookmark,
+  RotateCcw,
+  Search,
+  Sparkles,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import type { PanInfo } from 'motion/react';
 import { Job, UserProfile } from '@/types';
 import { JobCard } from './JobCard';
+import { FilterBar } from './FilterBar';
+import { countActiveFilters, type DiscoverFacets, type DiscoverFilters } from '@/lib/jobs/filters';
 
 interface DiscoveryViewProps {
   jobs: Job[];
   userProfile: UserProfile;
+  filters: DiscoverFilters;
+  facets: DiscoverFacets | null;
+  loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onFiltersChange: (filters: DiscoverFilters) => void;
+  onClearFilters: () => void;
+  onLoadMore: () => void;
   onInterestedJob: (job: Job) => void;
   onPassJob: (job: Job) => void;
 }
@@ -17,11 +35,18 @@ interface DiscoveryViewProps {
 export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   jobs,
   userProfile,
+  filters,
+  facets,
+  loading,
+  loadingMore,
+  hasMore,
+  onFiltersChange,
+  onClearFilters,
+  onLoadMore,
   onInterestedJob,
   onPassJob,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
   const [swipeFeedback, setSwipeFeedback] = useState<null | 'saved' | 'passed'>(null);
 
   const x = useMotionValue(0);
@@ -29,23 +54,22 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   const passOpacity = useTransform(x, [-120, -20], [1, 0]);
   const saveOpacity = useTransform(x, [20, 120], [0, 1]);
 
-  const filteredJobs = useMemo(
-    () =>
-      jobs.filter((job) => {
-        const query = searchQuery.toLowerCase();
-        return (
-          job.companyName.toLowerCase().includes(query) ||
-          job.role.toLowerCase().includes(query) ||
-          job.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-          job.description.toLowerCase().includes(query)
-        );
-      }),
-    [jobs, searchQuery]
-  );
-
-  const activeStack = filteredJobs.slice(currentIndex);
+  // Clamp the swipe position against the loaded feed (grows via pagination,
+  // resets when a filter change swaps the result set).
+  const clampedIndex = Math.min(currentIndex, Math.max(0, jobs.length - 1));
+  const activeStack = jobs.slice(clampedIndex);
   const currentJob = activeStack[0];
 
+  const prevFirstId = useRef<string | null>(null);
+  useEffect(() => {
+    const firstId = jobs[0]?.id ?? null;
+    if (firstId !== prevFirstId.current) {
+      setCurrentIndex(0);
+    }
+    prevFirstId.current = firstId;
+  }, [jobs]);
+
+  // Keep the motion value in sync when the card changes.
   useEffect(() => {
     x.set(0);
     setSwipeFeedback(null);
@@ -56,6 +80,13 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
     const timer = window.setTimeout(() => setSwipeFeedback(null), 700);
     return () => window.clearTimeout(timer);
   }, [swipeFeedback]);
+
+  // Infinite feed: pull the next page as the user nears the end of the stack.
+  useEffect(() => {
+    if (hasMore && !loadingMore && jobs.length > 0 && clampedIndex >= jobs.length - 4) {
+      onLoadMore();
+    }
+  }, [clampedIndex, jobs.length, hasMore, loadingMore, onLoadMore]);
 
   const handleAdvance = async (action: 'interested' | 'pass') => {
     if (!currentJob) return;
@@ -87,9 +118,11 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
 
   const handleReset = () => {
     setCurrentIndex(0);
-    setSearchQuery('');
     x.set(0);
   };
+
+  const activeFilterCount = countActiveFilters(filters);
+  const noMatches = !loading && jobs.length === 0;
 
   return (
     <div className="relative h-[calc(100dvh-5rem)] overflow-hidden bg-slate-50 px-4 py-4 sm:py-6 flex flex-col items-center gap-3 sm:gap-4">
@@ -108,7 +141,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 shadow-sm text-xs font-bold text-slate-700 hidden sm:flex">
               <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span>{filteredJobs.length} active roles</span>
+              <span>{jobs.length} active roles</span>
             </div>
 
             <button
@@ -126,11 +159,13 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           <input
             type="text"
             placeholder="Search companies, roles, or keywords..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={filters.q}
+            onChange={(e) => onFiltersChange({ ...filters, q: e.target.value })}
             className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm transition-colors"
           />
         </div>
+
+        <FilterBar filters={filters} onChange={onFiltersChange} facets={facets} />
       </div>
 
       <div className="relative w-full max-w-4xl flex-1 min-h-0 flex items-center justify-center">
@@ -154,77 +189,105 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         </AnimatePresence>
 
         <div className="relative w-full h-full">
-          {currentJob ? (
-            <div className="relative w-full h-full">
-            {activeStack.slice(1, 3).map((bgJob, offsetIdx) => {
-              const scale = 1 - (offsetIdx + 1) * 0.045;
-              const translateY = (offsetIdx + 1) * 14;
-              return (
-                <div
-                  key={bgJob.id}
-                  style={{
-                    transform: `translateY(${translateY}px) scale(${scale})`,
-                    zIndex: 10 - offsetIdx - 1,
-                  }}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-55 blur-[0.5px] transition-all duration-300"
-                >
-                  <JobCard job={bgJob} userProfile={userProfile} compact />
-                </div>
-              );
-            })}
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentJob.id}
-                style={{ x, rotate }}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.7}
-                onDragEnd={handleDragEnd}
-                className="absolute inset-0 z-20 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
-                initial={{ scale: 0.95, opacity: 0, y: 24 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.94, opacity: 0, y: -8 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 24, mass: 0.9 }}
-              >
-                <motion.div
-                  style={{ opacity: saveOpacity }}
-                  className="absolute top-8 left-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800 shadow-[0_10px_30px_rgba(16,185,129,0.18)]"
-                >
-                  <Bookmark className="w-4 h-4 text-emerald-600" />
-                  <span>Saved</span>
-                </motion.div>
-
-                <motion.div
-                  style={{ opacity: passOpacity }}
-                  className="absolute top-8 right-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                  <span>Passed</span>
-                </motion.div>
-
-                <JobCard job={currentJob} userProfile={userProfile} />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        ) : (
-          <div className="w-full h-full rounded-4xl bg-white/95 backdrop-blur border border-slate-200 p-8 flex flex-col items-center justify-center text-center shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
-              <Sparkles className="w-8 h-8 animate-pulse" />
+          {loading && jobs.length === 0 ? (
+            <div className="w-full h-full rounded-4xl bg-white/95 backdrop-blur border border-slate-200 p-8 flex flex-col items-center justify-center text-center shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
+              <SlidersHorizontal className="w-8 h-8 text-indigo-600 animate-pulse mb-4" />
+              <h3 className="text-xl font-black text-slate-900 mb-2">Finding matching roles…</h3>
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">No more cards</h3>
-            <p className="text-sm text-slate-600 font-medium max-w-md mb-6">
-              Everything currently in the database has been reviewed for this filter. Use Reset cards to start over, or sync new jobs for fresh openings.
-            </p>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-200 transition-all"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Reset & Review Cards</span>
-            </button>
-          </div>
-        )}
+          ) : noMatches ? (
+            <div className="w-full h-full rounded-4xl bg-white/95 backdrop-blur border border-slate-200 p-8 flex flex-col items-center justify-center text-center shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+                <Search className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">No roles match your current filters</h3>
+              <p className="text-sm text-slate-600 font-medium max-w-md mb-6">
+                {activeFilterCount > 0
+                  ? 'Try removing a filter or two to widen the search.'
+                  : 'No live openings found right now. Reset to start over.'}
+              </p>
+              <button
+                onClick={onClearFilters}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-200 transition-all"
+              >
+                <X className="w-4 h-4" />
+                <span>Clear Filters</span>
+              </button>
+            </div>
+          ) : currentJob ? (
+            <div className="relative w-full h-full">
+              {activeStack.slice(1, 3).map((bgJob, offsetIdx) => {
+                const scale = 1 - (offsetIdx + 1) * 0.045;
+                const translateY = (offsetIdx + 1) * 14;
+                return (
+                  <div
+                    key={bgJob.id}
+                    style={{
+                      transform: `translateY(${translateY}px) scale(${scale})`,
+                      zIndex: 10 - offsetIdx - 1,
+                    }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-55 blur-[0.5px] transition-all duration-300"
+                  >
+                    <JobCard job={bgJob} userProfile={userProfile} compact />
+                  </div>
+                );
+              })}
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentJob.id}
+                  style={{ x, rotate }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.7}
+                  onDragEnd={handleDragEnd}
+                  className="absolute inset-0 z-20 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+                  initial={{ scale: 0.95, opacity: 0, y: 24 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.94, opacity: 0, y: -8 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 24, mass: 0.9 }}
+                >
+                  <motion.div
+                    style={{ opacity: saveOpacity }}
+                    className="absolute top-8 left-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800 shadow-[0_10px_30px_rgba(16,185,129,0.18)]"
+                  >
+                    <Bookmark className="w-4 h-4 text-emerald-600" />
+                    <span>Saved</span>
+                  </motion.div>
+
+                  <motion.div
+                    style={{ opacity: passOpacity }}
+                    className="absolute top-8 right-8 z-30 pointer-events-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                  >
+                    <X className="w-4 h-4 text-slate-500" />
+                    <span>Passed</span>
+                  </motion.div>
+
+                  <JobCard job={currentJob} userProfile={userProfile} />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="w-full h-full rounded-4xl bg-white/95 backdrop-blur border border-slate-200 p-8 flex flex-col items-center justify-center text-center shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+                <Sparkles className="w-8 h-8 animate-pulse" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">
+                {loadingMore ? 'Loading more roles…' : 'You&apos;ve seen every matching card'}
+              </h3>
+              <p className="text-sm text-slate-600 font-medium max-w-md mb-6">
+                {loadingMore
+                  ? 'Fetching the next page of matches.'
+                  : 'Everything matching your filters has been reviewed. Reset cards to start over, or widen your filters.'}
+              </p>
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-200 transition-all"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset & Review Cards</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -233,7 +296,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-1">
             <span className="hidden sm:inline">Swipe right or tap Interested to save the role.</span>
             <span>
-              {currentIndex + 1} / {filteredJobs.length}
+              {clampedIndex + 1} / {jobs.length}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
