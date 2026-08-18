@@ -190,6 +190,8 @@ export function mapApplicationToClient(
     status: app.status as Application['status'],
     appliedAt: (app.appliedAt || app.createdAt).toISOString(),
     notes: app.notes || undefined,
+    favorite: app.favorite,
+    dueDate: app.dueDate ? app.dueDate.toISOString() : null,
     matchScore: app.matchScore,
     whyYouFit: app.whyYouFit,
     roadmap: (app.roadmap as AIRoadmap | null) || null,

@@ -125,6 +125,41 @@ export async function updateApplicationStatus(input: z.infer<typeof statusSchema
   return { success: true, application: mapApplicationToClient(application) };
 }
 
+const applicationMetaSchema = z.object({
+  jobId: z.string().min(1),
+  favorite: z.boolean().optional(),
+  dueDate: z.string().nullable().optional(), // ISO date string, or null to clear
+});
+
+export async function updateApplicationMeta(input: z.infer<typeof applicationMetaSchema>) {
+  const session = await requireSession();
+  const data = applicationMetaSchema.parse(input);
+
+  const favorite = data.favorite !== undefined ? data.favorite : undefined;
+  const dueDate =
+    data.dueDate !== undefined ? (data.dueDate ? new Date(data.dueDate) : null) : undefined;
+
+  const application = await prisma.application.upsert({
+    where: {
+      userId_jobId: { userId: session.user.id, jobId: data.jobId },
+    },
+    create: {
+      userId: session.user.id,
+      jobId: data.jobId,
+      ...(favorite !== undefined ? { favorite } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+    },
+    update: {
+      ...(favorite !== undefined ? { favorite } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+    },
+    include: { job: true },
+  });
+
+  revalidatePath('/companies');
+  return { success: true, application: mapApplicationToClient(application) };
+}
+
 export async function updateProfile(input: Partial<UserProfile>) {
   const session = await requireSession();
   const data = profileSchema.parse(input);

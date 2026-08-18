@@ -8,6 +8,7 @@ import {
   enqueueRoadmap,
   getApplicationStatus,
   updateApplicationStatus,
+  updateApplicationMeta,
   updateRoadmapTask,
 } from '@/server/actions';
 import { useAppStore } from '@/store/app-store';
@@ -55,6 +56,10 @@ export function CompaniesClient({
       userProfile={userProfile}
       onUpdateStatus={async (jobId, status: ApplicationStatus) => {
         const res = await updateApplicationStatus({ jobId, status });
+        if (res.application) upsertApplication(res.application);
+      }}
+      onUpdateMeta={async (jobId, meta) => {
+        const res = await updateApplicationMeta({ jobId, ...meta });
         if (res.application) upsertApplication(res.application);
       }}
       onGenerateRoadmap={async (appId) => {

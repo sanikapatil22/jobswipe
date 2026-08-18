@@ -26,7 +26,7 @@ export function ProfileClient({ userProfile: initial }: { userProfile: UserProfi
             await authClient.signOut();
             router.push('/login');
           }}
-          className="w-full py-3.5 px-4 rounded-2xl bg-white border-2 border-slate-200 hover:border-rose-400 text-rose-700 font-black text-xs transition-all"
+          className="w-full py-3.5 px-4 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 hover:border-rose-400 text-rose-700 dark:text-rose-400 font-black text-xs transition-all"
         >
           Sign Out
         </button>

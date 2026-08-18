@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { Providers } from '@/components/providers';
+import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -21,8 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${plusJakarta.variable} h-full bg-slate-50 text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900`}
     >
-      <body className="h-full bg-slate-50 text-slate-900 font-[family-name:var(--font-sans)]">
-        <Providers>{children}</Providers>
+      <body className="h-full bg-slate-50 dark:bg-[#0A0C12] text-slate-900 dark:text-slate-100 font-[family-name:var(--font-sans)]">
+        <Providers>
+          <ThemeProvider>{children}</ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

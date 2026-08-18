@@ -31,98 +31,98 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-8 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8 text-slate-900">
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 dark:bg-[#0A0C12] py-8 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8 text-slate-900 dark:text-slate-50">
       
       {/* Header Banner */}
-      <div className="p-6 rounded-3xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-between">
+      <div className="p-6 rounded-3xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Student Profile & Job Preferences</h1>
-          <p className="text-xs font-semibold text-slate-500 mt-1">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-slate-50">Student Profile & Job Preferences</h1>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-500 mt-1">
             Customize your search preferences to tailor AI job matching scores and roadmaps.
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-8 rounded-3xl bg-white border-2 border-slate-200 shadow-sm space-y-6">
+      <form onSubmit={handleSubmit} className="p-8 rounded-3xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 shadow-sm space-y-6">
         
         {/* Personal Details */}
         <div className="space-y-4">
-          <h2 className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-            <User className="w-4 h-4 text-indigo-600" />
+          <h2 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+            <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Personal Information</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1">Full Name</label>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-200 mb-1">Full Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-slate-50 focus:outline-none focus:border-indigo-600 shadow-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1">Email Address</label>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-200 mb-1">Email Address</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-slate-50 focus:outline-none focus:border-indigo-600 shadow-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Education Details */}
-        <div className="space-y-4 pt-4 border-t-2 border-slate-100">
-          <h2 className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-            <School className="w-4 h-4 text-indigo-600" />
+        <div className="space-y-4 pt-4 border-t-2 border-slate-100 dark:border-white/10">
+          <h2 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+            <School className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Academic Background</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1">University / College</label>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-200 mb-1">University / College</label>
               <input
                 type="text"
                 value={formData.university}
                 onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-slate-50 focus:outline-none focus:border-indigo-600 shadow-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1">Graduation Year</label>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-200 mb-1">Graduation Year</label>
               <input
                 type="text"
                 value={formData.graduationYear}
                 onChange={(e) => setFormData({ ...formData, graduationYear: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-slate-50 focus:outline-none focus:border-indigo-600 shadow-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1">Cumulative GPA</label>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-200 mb-1">Cumulative GPA</label>
               <input
                 type="text"
                 value={formData.gpa}
                 onChange={(e) => setFormData({ ...formData, gpa: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-slate-50 focus:outline-none focus:border-indigo-600 shadow-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Salary Preferences */}
-        <div className="space-y-4 pt-4 border-t-2 border-slate-100">
+        <div className="space-y-4 pt-4 border-t-2 border-slate-100 dark:border-white/10">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Target Minimum Compensation</span>
             </h2>
-            <span className="text-sm font-black text-emerald-700">
+            <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">
               ${formData.minSalary} / hr (${formData.minSalary * 2000} / yr)
             </span>
           </div>
@@ -139,8 +139,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
 
         {savedMsg && (
-          <div className="p-3.5 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-emerald-900 font-bold text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-none" />
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border-2 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 font-bold text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-none" />
             <span>Profile settings updated successfully!</span>
           </div>
         )}

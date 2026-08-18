@@ -4,10 +4,16 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ResumeView } from '@/components/resume/ResumeView';
 import { enqueueResumeParse, getResumeParseJobStatus, updateProfile } from '@/server/actions';
-import type { UserProfile } from '@/types';
+import type { Application, UserProfile } from '@/types';
 import { useRouter } from 'next/navigation';
 
-export function ResumeClient({ userProfile: initial }: { userProfile: UserProfile }) {
+export function ResumeClient({
+  userProfile: initial,
+  applications,
+}: {
+  userProfile: UserProfile;
+  applications: Application[];
+}) {
   const router = useRouter();
   const [profile, setProfile] = useState(initial);
   const [parseJobId, setParseJobId] = useState<string | null>(null);
@@ -44,6 +50,7 @@ export function ResumeClient({ userProfile: initial }: { userProfile: UserProfil
   return (
     <ResumeView
       userProfile={profile}
+      applications={applications}
       isParsing={!!parseJobId}
       onUpdateProfile={async (partial) => {
         setProfile((prev) => ({ ...prev, ...partial }));

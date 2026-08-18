@@ -24,18 +24,24 @@ export function safeParseJson(text: string): unknown {
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/```$/i, '')
-    .trim();
-
-  const candidates: string[] = [];
+    .trim();  const candidates: string[] = [];
   candidates.push(cleaned);
-  candidates.push(cleaned.replace(/,\s*([}\]])/g, '$1'));
+  candidates.push(cleaned.replace(/, \s*([}\]])/g, '$1'));
 
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace > firstBrace) {
-    const blob = cleaned.slice(firstBrace, lastBrace + 1);
-    candidates.push(blob);
-    candidates.push(blob.replace(/,\s*([}\]])/g, '$1'));
+    // The model sometimes appends commentary (or a stray closing brace)
+    // after the JSON object — progressively trim trailing braces.
+    let end = lastBrace;
+    for (let i = 0; i < 12; i++) {
+      const blob = cleaned.slice(firstBrace, end + 1);
+      candidates.push(blob);
+      candidates.push(blob.replace(/, \s*([}\]])/g, '$1'));
+      const previous = cleaned.lastIndexOf('}', end - 1);
+      if (previous <= firstBrace) break;
+      end = previous;
+    }
   }
 
   for (const candidate of candidates) {

@@ -126,6 +126,8 @@ export interface Application {
   status: ApplicationStatus;
   appliedAt: string;
   notes?: string;
+  favorite: boolean;
+  dueDate?: string | null;
   matchScore?: number | null;
   whyYouFit?: string | null;
   roadmap?: AIRoadmap | null;

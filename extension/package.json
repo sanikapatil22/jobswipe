@@ -1,0 +1,24 @@
+{
+  "name": "swipeprep-extension",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SwipePrep Chrome extension: detect jobs on application pages, show your match score, and autofill applications from your SwipePrep profile.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:icons": "node scripts/generate-icons.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^0.546.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.25.0",
+    "typescript": "~5.8.2"
+  }
+}

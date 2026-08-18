@@ -44,18 +44,18 @@ function CheckboxRow({
   count?: number;
 }) {
   return (
-    <label className="flex items-center gap-2.5 px-1 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none">
+    <label className="flex items-center gap-2.5 px-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-[#0A0C12] cursor-pointer select-none">
       <span
         className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-none transition-colors ${
-          checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+          checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.03]'
         }`}
       >
         {checked && <Check className="w-3 h-3" />}
       </span>
       <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
-      <span className="text-xs font-semibold text-slate-800 flex-1">{label}</span>
+      <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 flex-1">{label}</span>
       {typeof count === 'number' && (
-        <span className="text-[10px] font-bold text-slate-400">{count}</span>
+        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600">{count}</span>
       )}
     </label>
   );
@@ -85,25 +85,25 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
 
   const sectionSearch = (id: SectionId, placeholder: string) => (
     <div className="relative mb-2">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
       <input
         type="text"
         placeholder={placeholder}
         value={searches[id] || ''}
         onChange={(e) => setSearches((prev) => ({ ...prev, [id]: e.target.value }))}
-        className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border-2 border-slate-200 text-xs font-semibold placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+        className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-[#0A0C12] border-2 border-slate-200 dark:border-white/10 text-xs font-semibold placeholder-slate-400 focus:outline-none focus:border-indigo-500"
       />
     </div>
   );
 
   const sectionTitle = (text: string) => (
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1 mb-1.5 mt-2.5">
+    <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-wider px-1 mb-1.5 mt-2.5">
       {text}
     </p>
   );
 
   const noResults = (
-    <p className="px-2 py-2 text-[11px] font-bold text-slate-400">No matching options</p>
+    <p className="px-2 py-2 text-[11px] font-bold text-slate-400 dark:text-slate-600">No matching options</p>
   );
 
   const scrollBox = (children: React.ReactNode) => (
@@ -148,11 +148,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
               filteredCountries.map((c) => (
                 <label
                   key={c.id}
-                  className="flex items-center gap-2.5 px-1 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none"
+                  className="flex items-center gap-2.5 px-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-[#0A0C12] cursor-pointer select-none"
                 >
                   <span
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-none transition-colors ${
-                      filters.country === c.id ? 'border-indigo-600' : 'border-slate-300'
+                      filters.country === c.id ? 'border-indigo-600' : 'border-slate-300 dark:border-white/15'
                     }`}
                   >
                     {filters.country === c.id && (
@@ -166,7 +166,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
                     checked={filters.country === c.id}
                     onChange={() => set({ country: c.id, regions: [] })}
                   />
-                  <span className="text-xs font-semibold text-slate-800">{c.name}</span>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{c.name}</span>
                 </label>
               ))
             ) : (
@@ -189,7 +189,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
                 noResults
               )
             ) : (
-              <p className="px-1 py-1.5 text-[11px] font-semibold text-slate-400">
+              <p className="px-1 py-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-600">
                 Select a country to see its states & cities.
               </p>
             )}
@@ -325,7 +325,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
                 <label key={t.value} className="flex items-center gap-2.5 py-1.5 cursor-pointer select-none">
                   <span
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-none transition-colors ${
-                      filters.minMatch === t.value ? 'border-indigo-600' : 'border-slate-300'
+                      filters.minMatch === t.value ? 'border-indigo-600' : 'border-slate-300 dark:border-white/15'
                     }`}
                   >
                     {filters.minMatch === t.value && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
@@ -337,18 +337,18 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
                     checked={filters.minMatch === t.value}
                     onChange={() => set({ minMatch: t.value })}
                   />
-                  <span className="text-xs font-semibold text-slate-800">{t.label}</span>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{t.label}</span>
                 </label>
               ))}
             </div>
             {sectionTitle('Company type')}
             <div className="px-1">
-              <p className="text-[11px] font-semibold text-slate-400 leading-relaxed">
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-600 leading-relaxed">
                 Company size data isn&apos;t synced yet — this filter will appear once it is.
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {COMPANY_TYPES.map((ct) => (
-                  <span key={ct} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 text-[10px] font-bold">
+                  <span key={ct} className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-600 text-[10px] font-bold">
                     {ct}
                   </span>
                 ))}
@@ -430,13 +430,13 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
         const isOpen = open.includes(id);
         const count = sectionCount[id];
         return (
-          <div key={id} className="border-b border-slate-100 last:border-b-0">
+          <div key={id} className="border-b border-slate-100 dark:border-white/10 last:border-b-0">
             <button
               type="button"
               onClick={() => toggleSection(id)}
               className="w-full flex items-center justify-between gap-2 py-3 text-left transition-colors"
             >
-              <span className="flex items-center gap-2 text-xs font-black text-slate-700">
+              <span className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
                 {label}
                 {count > 0 && (
                   <span className="min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] font-black flex items-center justify-center">
@@ -445,7 +445,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
                 )}
               </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-600 transition-transform ${isOpen ? 'rotate-180' : ''}`}
               />
             </button>
             {isOpen && <div className="pb-3">{renderSection(id)}</div>}
@@ -454,21 +454,21 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
       })}
 
       {chips.length > 0 && (
-        <div className="pt-3 border-t border-slate-100">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
+        <div className="pt-3 border-t border-slate-100 dark:border-white/10">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-wider mb-2">
             Active filters
           </p>
           <div className="flex flex-wrap gap-1.5">
             {chips.map((chip) => (
               <span
                 key={chip.key}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-800"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 dark:border-indigo-500/30 text-[10px] font-bold text-indigo-800 dark:text-indigo-300"
               >
                 {chip.label}
                 <button
                   type="button"
                   onClick={chip.onRemove}
-                  className="text-indigo-400 hover:text-indigo-700 transition-colors"
+                  className="text-indigo-400 hover:text-indigo-700 dark:text-indigo-300 transition-colors"
                   aria-label={`Remove filter ${chip.label}`}
                 >
                   <X className="w-3 h-3" />
@@ -479,7 +479,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange,
           <button
             type="button"
             onClick={onClear}
-            className="mt-2.5 text-[11px] font-black text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="mt-2.5 text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:text-indigo-300 transition-colors"
           >
             Clear All
           </button>

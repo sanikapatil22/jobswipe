@@ -25,6 +25,10 @@ yarn-error.log*
 # Prisma
 src/generated/prisma/
 
+# Chrome extension
+/extension/node_modules/
+/extension/dist/
+
 # Typescript
 next-env.d.ts
 *.tsbuildinfo
