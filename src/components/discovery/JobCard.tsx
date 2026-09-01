@@ -30,11 +30,14 @@ export const JobCard: React.FC<JobCardProps> = ({
   // Strip HTML tags + decode common entities (server-safe; no DOMParser for SSR).
   const cleanDescription = job.description
     .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/\s+/g, ' ')
     .trim();
   const snippet = cleanDescription.length > 190 ? `${cleanDescription.slice(0, 190).trimEnd()}…` : cleanDescription;
@@ -45,7 +48,7 @@ export const JobCard: React.FC<JobCardProps> = ({
   const imgSize = vertical ? 80 : 48;
 
   return (
-    <div className={`w-full ${vertical ? 'max-w-none' : 'max-w-2xl'} mx-auto max-h-full bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
+    <div className={`w-full ${vertical ? 'max-w-none' : 'max-w-2xl'} mx-auto max-h-full bg-white dark:bg-[#111827] border border-slate-200 dark:border-white/10 rounded-4xl shadow-[0_24px_90px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_90px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col relative select-none transition-all ${compact ? 'scale-[0.98]' : ''}`}>
       <div className="h-2.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" />
 
       <div className={`${pad} flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/10`}>
@@ -67,7 +70,7 @@ export const JobCard: React.FC<JobCardProps> = ({
                 {job.companyName}
               </h3>
               {job.companySize && (
-                <span className="hidden sm:inline-flex px-2.5 py-0.5 text-[10px] font-black bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-200 rounded-full border border-slate-200 dark:border-white/10">
+                <span className="hidden sm:inline-flex px-2.5 py-0.5 text-[10px] font-black bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 rounded-full border border-slate-200 dark:border-white/10">
                   {job.companySize}
                 </span>
               )}
@@ -89,7 +92,7 @@ export const JobCard: React.FC<JobCardProps> = ({
 
       <div className={`${pad} flex-1 min-h-0 overflow-y-auto space-y-4 [scrollbar-width:thin] [scrollbar-color:rgb(226_232_240)_transparent]`}>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#0A0C12] border border-slate-100 dark:border-white/10 text-slate-800 dark:text-slate-100">
+          <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-800 dark:text-slate-100">
             <MapPin className="w-4 h-4 text-sky-600 flex-none" />
             <div className="truncate">
               <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black">Location</p>
@@ -97,7 +100,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#0A0C12] border border-slate-100 dark:border-white/10 text-slate-800 dark:text-slate-100">
+          <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-800 dark:text-slate-100">
             <Calendar className="w-4 h-4 text-amber-600 flex-none" />
             <div className="truncate">
               <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black">Posted</p>
@@ -119,7 +122,7 @@ export const JobCard: React.FC<JobCardProps> = ({
                 className={`px-3 py-1 text-[11px] rounded-full font-bold border ${
                   userHasSkill
                     ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
-                    : 'bg-white dark:bg-white/[0.03] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10'
+                    : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10'
                 }`}
               >
                 {tag}

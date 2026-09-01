@@ -198,8 +198,8 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
 
       {/* ===== Main area: header + vertical card deck ===== */}
       <main className="flex-1 min-w-0 flex flex-col items-center px-4 py-4 sm:py-6 gap-3 sm:gap-4 relative">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-indigo-100 dark:bg-indigo-500/20/40 blur-3xl" />
-        <div className="pointer-events-none absolute right-0 top-24 h-64 w-64 rounded-full bg-cyan-100/40 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-indigo-100 dark:hidden blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-24 h-64 w-64 rounded-full bg-cyan-100/40 dark:hidden blur-3xl" />
 
         <div className="relative w-full max-w-2xl xl:max-w-3xl mx-auto flex flex-col gap-2 sm:gap-3">
           <div className="flex items-end justify-between gap-2">
@@ -322,7 +322,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                         transform: `translateY(${translateY}px) scale(${scale})`,
                         zIndex: 10 - offsetIdx - 1,
                       }}
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-55 blur-[0.5px] transition-all duration-300"
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30 blur-[2px] transition-all duration-300"
                     >
                       <JobCard job={bgJob} userProfile={userProfile} compact />
                     </div>

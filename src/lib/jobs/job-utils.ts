@@ -3,12 +3,14 @@ export function stripHtml(html: string): string {
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
+    .replace(/&#39;|&apos;/g, "'")
     .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -39,34 +41,17 @@ export function extractListItems(html: string, limit = 5): string[] {
 }
 
 export function extractKeywords(title: string, body: string, limit = 8): string[] {
-  const raw = `${title} ${body}`.toLowerCase();
-  const stopWords = new Set([
-    'and',
-    'the',
-    'for',
-    'with',
-    'you',
-    'will',
-    'our',
-    'this',
-    'that',
-    'from',
-    'role',
-    'team',
-    'company',
-    'work',
-    'experience',
-    'skills',
-    'ability',
-    'across',
-    'including',
-    'we',
-    'of',
-    'to',
-    'a',
-    'in',
-    'on',
-    'as',
+  const raw = `${title} ${body}`.toLowerCase();  const stopWords = new Set([
+    'and', 'the', 'for', 'with', 'you', 'will', 'our', 'this',
+    'that', 'from', 'role', 'team', 'company', 'work', 'experience',
+    'skills', 'ability', 'across', 'including', 'we', 'of', 'to',
+    'a', 'in', 'on', 'as',
+    // HTML / CSS / layout artefacts that shouldn't appear as tags
+    'div', 'span', 'class', 'href', 'http', 'https', 'www',
+    'com', 'html', 'css', 'img', 'src', 'alt', 'rel', 'target',
+    'content', 'type', 'data', 'role', 'value', 'true', 'false',
+    'style', 'font', 'line', 'list', 'link', 'meta', 'head',
+    'body', 'text', 'code', 'form', 'input', 'label', 'table',
   ]);
 
   const candidates = raw
